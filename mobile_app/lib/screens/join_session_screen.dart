@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/session.dart';
 import '../services/api_service.dart';
 
 class JoinSessionScreen extends StatefulWidget {
