@@ -90,7 +90,6 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
             ),
             const SizedBox(height: 40),
             
-            // Code Input
             TextField(
               controller: _codeController,
               style: const TextStyle(
@@ -116,7 +115,6 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
             ),
             const SizedBox(height: 30),
             
-            // Join Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -146,7 +144,6 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
             ),
             const SizedBox(height: 20),
             
-            // Info
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20.0),
               child: Text(

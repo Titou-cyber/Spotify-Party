@@ -97,7 +97,6 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Session Name
             TextField(
               controller: _nameController,
               style: const TextStyle(color: Colors.white),
@@ -112,7 +111,6 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
             ),
             const SizedBox(height: 20),
             
-            // Playlists Section
             const Text(
               'Sélectionnez vos playlists:',
               style: TextStyle(
@@ -186,7 +184,6 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                     ),
             ),
             
-            // Create Button
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

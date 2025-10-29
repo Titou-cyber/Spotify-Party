@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
@@ -15,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
   String? _authUrl;
+  final TextEditingController _codeController = TextEditingController();
 
   @override
   void initState() {
@@ -27,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final token = prefs.getString(AppConstants.keyAccessToken);
     
     if (token != null && token.isNotEmpty) {
-      // Token existant, aller directement à l'accueil
       Navigator.pushReplacementNamed(context, '/home');
       return;
     }
@@ -52,21 +52,31 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleCallback(String code) async {
-    if (code.contains('code=')) {
-      final uri = Uri.parse(code);
-      final codeParam = uri.queryParameters['code'];
-      
-      if (codeParam != null) {
-        code = codeParam;
-      }
+  Future<void> _launchBrowser() async {
+    if (_authUrl != null) {
+      await launchUrl(Uri.parse(_authUrl!));
     }
+  }
+
+  Future<void> _submitCode() async {
+    final code = _codeController.text.trim();
+    
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez entrer le code'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
       final result = await _apiService.handleCallback(code);
       await _apiService.saveToken(result['access_token']);
       
-      // Sauvegarder les infos utilisateur
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AppConstants.keyUserId, result['user']['id']);
       await prefs.setString(AppConstants.keyUserData, result['user'].toString());
@@ -75,10 +85,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur d\'authentification: $e'),
+          content: Text('Erreur: $e'),
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -123,33 +135,99 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 )
-              : WebView(
-                  initialUrl: _authUrl,
-                  javascriptMode: JavascriptMode.unrestricted,
-                  navigationDelegate: (navigation) {
-                    // Capturer le code depuis n'importe quelle URL contenant 'code='
-                    if (navigation.url.contains('code=')) {
-                      try {
-                        final uri = Uri.parse(navigation.url);
-                        final code = uri.queryParameters['code'];
-                        
-                        if (code != null && code.isNotEmpty) {
-                          print('Code Spotify reçu: ${code.substring(0, 10)}...');
-                          _handleCallback(code);
-                          return NavigationDecision.prevent;
-                        }
-                      } catch (e) {
-                        print('Erreur parsing URL: $e');
-                      }
-                    }
-                    
-                    // Bloquer les URLs Postman pour éviter la boucle
-                    if (navigation.url.contains('oauth.pstmn.io')) {
-                      return NavigationDecision.prevent;
-                    }
-                    
-                    return NavigationDecision.navigate;
-                  },
+              : Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.music_note,
+                        size: 80,
+                        color: Color(0xFF1DB954),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Spotify Party',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Connectez-vous avec Spotify pour commencer',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 40),
+                      
+                      ElevatedButton(
+                        onPressed: _launchBrowser,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1DB954),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        ),
+                        child: const Text(
+                          'Ouvrir Spotify',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      
+                      const Row(
+                        children: [
+                          Expanded(child: Divider(color: Colors.grey)),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'OU',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                          Expanded(child: Divider(color: Colors.grey)),
+                        ],
+                      ),
+                      const SizedBox(height: 30),
+                      
+                      const Text(
+                        'Entrez le code d\'autorisation:',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                      const SizedBox(height: 15),
+                      TextField(
+                        controller: _codeController,
+                        decoration: const InputDecoration(
+                          hintText: 'Collez le code ici...',
+                          hintStyle: TextStyle(color: Colors.grey),
+                          border: OutlineInputBorder(),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF1DB954)),
+                          ),
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: _submitCode,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Se connecter'),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Instructions:\n1. Cliquez sur "Ouvrir Spotify"\n2. Autorisez l\'application\n3. Copiez le code de redirection\n4. Collez-le ci-dessus',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
     );
   }

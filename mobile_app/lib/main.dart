@@ -37,7 +37,7 @@ class MyApp extends StatelessWidget {
           onSurface: Colors.white,
         ),
         scaffoldBackgroundColor: const Color(0xFF191414),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData( // CHANGÉ ICI
           color: const Color(0xFF282828),
           elevation: 4,
           shape: RoundedRectangleBorder(

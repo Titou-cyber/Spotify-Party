@@ -61,10 +61,13 @@ class SpotifyService {
   Future<Map<String, dynamic>?> getPlayerState() async {
     try {
       final state = await SpotifySdk.getPlayerState();
+      if (state == null) return null;
+      
+      // CORRECTION: Utilisez isPaused au lieu de isPlaying
       return {
-        'isPlaying': state.isPlaying,
+        'isPlaying': !state.isPaused, // Inverser isPaused
         'playbackPosition': state.playbackPosition,
-        'playbackSpeed': state.playbackSpeed,
+        'playbackSpeed': 1.0,
       };
     } catch (e) {
       print('Error getting player state: $e');
@@ -79,4 +82,8 @@ class SpotifyService {
       print('Error seeking: $e');
     }
   }
+
+  // SUPPRIMEZ ces méthodes qui n'existent pas dans la version actuelle :
+  // Future<String?> getUserId() async { ... }
+  // Future<bool> getCrossfadeState() async { ... }
 }

@@ -23,9 +23,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final userData = prefs.getString(AppConstants.keyUserData);
     
     if (userData != null) {
-      // Dans un vrai projet, parser le JSON
       setState(() {
-        _userName = 'Utilisateur'; // Remplacer par le vrai nom
+        _userName = 'Utilisateur';
       });
     }
   }
@@ -68,7 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Welcome message
             if (_userName != null)
               Column(
                 children: [
@@ -111,7 +109,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 50),
             
-            // Create Session Button
             _buildActionButton(
               "Créer une session",
               Icons.add,
@@ -120,7 +117,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
             
-            // Join Session Button
             _buildActionButton(
               "Rejoindre une session",
               Icons.group,
@@ -129,7 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 30),
             
-            // Info
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20.0),
               child: Text(

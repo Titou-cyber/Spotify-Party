@@ -50,14 +50,11 @@ class _SessionScreenState extends State<SessionScreen> {
       _isHost = session.hostId == userId;
     });
 
-    // Connecter WebSocket
     await _socketService.connect(session.id, userId!);
     _socketService.messages.listen(_handleWebSocketMessage);
 
-    // Charger les tracks des playlists
     await _loadTracks();
 
-    // Connecter Spotify SDK
     if (_isHost) {
       await _spotifyService.connectToSpotify();
     }
@@ -258,7 +255,6 @@ class _SessionScreenState extends State<SessionScreen> {
       ),
       body: Column(
         children: [
-          // Code de session
           Container(
             padding: const EdgeInsets.all(16),
             color: const Color(0xFF282828),
@@ -289,11 +285,9 @@ class _SessionScreenState extends State<SessionScreen> {
             ),
           ),
 
-          // Now Playing
           if (_currentTrack != null)
             NowPlayingWidget(track: _currentTrack!),
 
-          // Participants
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -308,7 +302,6 @@ class _SessionScreenState extends State<SessionScreen> {
             ),
           ),
 
-          // Liste des tracks
           Expanded(
             child: ListView.builder(
               itemCount: _tracks.length,

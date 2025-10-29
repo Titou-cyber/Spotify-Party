@@ -10,13 +10,13 @@ from app.api.spotify import router as spotify_router
 
 app = FastAPI(title="Spotify Party API", version="1.0.0")
 
-# CORS middleware
+# CORS middleware - CONFIGURATION CORRIGÉE
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],  # Autoriser toutes les origines pour le développement
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Autoriser toutes les méthodes
+    allow_headers=["*"],  # Autoriser tous les headers
 )
 
 # Include routers
