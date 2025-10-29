@@ -1,0 +1,13 @@
+# Backend Spotify Party - Version stable sans Rust
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+pydantic==1.10.12
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+websockets==12.0
+httpx==0.25.2
+python-dotenv==1.0.0
+spotipy==2.23.0
+shortuuid==1.0.11
