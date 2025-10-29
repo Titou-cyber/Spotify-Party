@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
 from app.models.vote import Vote
-from app.models.session import Session as SessionModel
 from typing import Dict, List, Optional
 from collections import defaultdict
 
@@ -11,7 +10,6 @@ class VotingService:
     def submit_vote(self, session_id: str, user_id: str, track_id: str, vote_type: str) -> Optional[Vote]:
         """Soumettre un vote"""
         try:
-            # Vérifier si l'utilisateur a déjà voté pour cette track
             existing_vote = self.db.query(Vote).filter(
                 Vote.session_id == session_id,
                 Vote.user_id == user_id,
@@ -19,11 +17,9 @@ class VotingService:
             ).first()
             
             if existing_vote:
-                # Mettre à jour le vote existant
                 existing_vote.vote_type = vote_type
                 vote = existing_vote
             else:
-                # Créer un nouveau vote
                 vote = Vote(
                     session_id=session_id,
                     user_id=user_id,
@@ -70,12 +66,3 @@ class VotingService:
             results[vote.track_id]['total_votes'] += 1
         
         return dict(results)
-    
-    def get_user_votes(self, session_id: str, user_id: str) -> Dict[str, str]:
-        """Obtenir tous les votes d'un utilisateur dans une session"""
-        votes = self.db.query(Vote).filter(
-            Vote.session_id == session_id,
-            Vote.user_id == user_id
-        ).all()
-        
-        return {vote.track_id: vote.vote_type for vote in votes}

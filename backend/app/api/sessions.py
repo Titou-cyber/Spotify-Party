@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 @router.post("/create", response_model=SessionResponse)
 async def create_session(
     session_data: SessionCreate,
-    user_id: str,  # Dans un vrai projet, utiliser l'auth
+    user_id: str,
     db: Session = Depends(get_db)
 ):
     """Créer une nouvelle session"""
@@ -26,7 +26,7 @@ async def create_session(
         playlist_ids=session_data.playlist_ids
     )
     
-    return SessionResponse.from_orm(session)
+    return SessionResponse.model_validate(session)
 
 @router.post("/join", response_model=SessionResponse)
 async def join_session(
@@ -44,7 +44,7 @@ async def join_session(
             detail="Session not found or inactive"
         )
     
-    return SessionResponse.from_orm(session)
+    return SessionResponse.model_validate(session)
 
 @router.get("/{session_id}", response_model=SessionResponse)
 async def get_session(session_id: str, db: Session = Depends(get_db)):
@@ -58,7 +58,7 @@ async def get_session(session_id: str, db: Session = Depends(get_db)):
             detail="Session not found"
         )
     
-    return SessionResponse.from_orm(session)
+    return SessionResponse.model_validate(session)
 
 @router.post("/{session_id}/leave")
 async def leave_session(session_id: str, user_id: str, db: Session = Depends(get_db)):

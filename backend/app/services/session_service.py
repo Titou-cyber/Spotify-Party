@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
 from app.models.session import Session as SessionModel
-from app.models.user import User
 from typing import List, Optional
 
 class SessionService:
@@ -15,7 +14,7 @@ class SessionService:
                 code=code,
                 name=name,
                 playlist_ids=playlist_ids,
-                participants=[host_id]  # L'hôte est automatiquement ajouté
+                participants=[host_id]
             )
             
             self.db.add(session)
@@ -45,7 +44,6 @@ class SessionService:
         if not session:
             return None
         
-        # Vérifier si l'utilisateur est déjà dans la session
         if user_id not in session.participants:
             session.participants.append(user_id)
             self.db.commit()
@@ -62,7 +60,6 @@ class SessionService:
         if user_id in session.participants:
             session.participants.remove(user_id)
             
-            # Si l'hôte quitte, fermer la session
             if user_id == session.host_id:
                 session.is_active = False
             
@@ -78,25 +75,5 @@ class SessionService:
             return False
         
         session.is_active = False
-        self.db.commit()
-        return True
-    
-    def update_current_track(self, session_id: str, track_data: dict) -> bool:
-        """Mettre à jour la track actuellement jouée"""
-        session = self.get_session(session_id)
-        if not session:
-            return False
-        
-        session.current_track = track_data
-        self.db.commit()
-        return True
-    
-    def add_to_queue(self, session_id: str, track_data: dict) -> bool:
-        """Ajouter une track à la file d'attente"""
-        session = self.get_session(session_id)
-        if not session:
-            return False
-        
-        session.track_queue.append(track_data)
         self.db.commit()
         return True

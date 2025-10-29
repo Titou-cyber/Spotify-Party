@@ -3,7 +3,7 @@ from datetime import datetime
 
 class VoteBase(BaseModel):
     track_id: str
-    vote_type: str  # 'like' or 'dislike'
+    vote_type: str
 
 class VoteCreate(VoteBase):
     session_id: str
@@ -14,8 +14,9 @@ class VoteResponse(VoteBase):
     session_id: str
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 class VoteResults(BaseModel):
     track_id: str

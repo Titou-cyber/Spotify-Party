@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from app.core.config import settings
@@ -82,7 +81,7 @@ async def callback(code: str, db: Session = Depends(get_db)):
         return {
             "access_token": jwt_token,
             "token_type": "bearer",
-            "user": UserResponse.from_orm(user)
+            "user": UserResponse.model_validate(user)
         }
     
     except HTTPException:
@@ -125,7 +124,6 @@ async def refresh_token(user_id: str, db: Session = Depends(get_db)):
         user.spotify_access_token = token_info['access_token']
         user.token_expires_at = datetime.utcnow() + timedelta(seconds=token_info['expires_in'])
         
-        # Mettre à jour le refresh token si un nouveau est fourni
         if 'refresh_token' in token_info:
             user.spotify_refresh_token = token_info['refresh_token']
         
@@ -155,57 +153,4 @@ async def get_current_user(user_id: str, db: Session = Depends(get_db)):
             detail="User not found"
         )
     
-    return UserResponse.from_orm(user)
-
-@router.get("/check-token")
-async def check_token_validity(user_id: str, db: Session = Depends(get_db)):
-    """Vérifier si le token Spotify est toujours valide"""
-    user = db.query(User).filter(User.id == user_id).first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    is_valid = True
-    message = "Token is valid"
-    
-    # Vérifier l'expiration
-    if user.token_expires_at and user.token_expires_at < datetime.utcnow():
-        is_valid = False
-        message = "Token has expired"
-    
-    return {
-        "is_valid": is_valid,
-        "message": message,
-        "expires_at": user.token_expires_at.isoformat() if user.token_expires_at else None
-    }
-
-@router.post("/logout")
-async def logout(user_id: str, db: Session = Depends(get_db)):
-    """Déconnecter l'utilisateur (supprimer les tokens)"""
-    user = db.query(User).filter(User.id == user_id).first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    try:
-        # Supprimer les tokens Spotify
-        user.spotify_access_token = None
-        user.spotify_refresh_token = None
-        user.token_expires_at = None
-        
-        db.commit()
-        
-        return {"message": "Successfully logged out"}
-    
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Logout failed: {str(e)}"
-        )
+    return UserResponse.model_validate(user)

@@ -12,10 +12,10 @@ class Session(Base):
     code = Column(String(6), unique=True, nullable=False, index=True)
     host_id = Column(String(36), nullable=False, index=True)
     name = Column(String(100), default="Session Spotify")
-    playlist_ids = Column(JSON, default=list)  # Liste des IDs de playlists
-    participants = Column(JSON, default=list)  # Liste des user_ids
-    current_track = Column(JSON, nullable=True)  # Track actuellement jouée
-    track_queue = Column(JSON, default=list)  # File d'attente des tracks
+    playlist_ids = Column(JSON, default=list)
+    participants = Column(JSON, default=list)
+    current_track = Column(JSON, nullable=True)
+    track_queue = Column(JSON, default=list)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

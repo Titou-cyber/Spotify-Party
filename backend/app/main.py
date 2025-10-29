@@ -1,24 +1,38 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
 
-class Settings(BaseSettings):
-    # Spotify API Configuration
-    SPOTIFY_CLIENT_ID: str
-    SPOTIFY_CLIENT_SECRET: str
-    SPOTIFY_REDIRECT_URI: str = "http://localhost:8000/api/auth/callback"
-    
-    # JWT Configuration
-    JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
-    JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
-    # Database
-    DATABASE_URL: str = "sqlite:///./spotify_party.db"
-    
-    # CORS
-    ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://127.0.0.1:3000"]
-    
-    class Config:
-        env_file = ".env"
+# Import des routers
+from app.api.auth import router as auth_router
+from app.api.sessions import router as sessions_router
+from app.api.votes import router as votes_router
+from app.api.spotify import router as spotify_router
 
-settings = Settings()
+app = FastAPI(title="Spotify Party API", version="1.0.0")
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(auth_router)
+app.include_router(sessions_router)
+app.include_router(votes_router)
+app.include_router(spotify_router)
+
+@app.get("/")
+async def root():
+    return {"message": "Spotify Party API", "version": "1.0.0"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

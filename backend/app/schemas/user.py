@@ -4,8 +4,8 @@ from datetime import datetime
 
 class UserBase(BaseModel):
     spotify_id: str
-    display_name: Optional[str]
-    email: Optional[str]
+    display_name: Optional[str] = None
+    email: Optional[str] = None
 
 class UserCreate(UserBase):
     pass
@@ -14,5 +14,6 @@ class UserResponse(UserBase):
     id: str
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }

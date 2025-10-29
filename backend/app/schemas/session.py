@@ -14,14 +14,15 @@ class SessionResponse(SessionBase):
     code: str
     host_id: str
     participants: List[str]
-    current_track: Optional[Dict[str, Any]]
+    current_track: Optional[Dict[str, Any]] = None
     track_queue: List[Dict[str, Any]]
     is_active: bool
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 class SessionJoin(BaseModel):
     code: str

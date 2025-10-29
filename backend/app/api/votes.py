@@ -40,7 +40,7 @@ async def submit_vote(
             detail="Failed to submit vote"
         )
     
-    return VoteResponse.from_orm(vote)
+    return VoteResponse.model_validate(vote)
 
 @router.get("/{session_id}/track/{track_id}/results", response_model=VoteResults)
 async def get_track_results(session_id: str, track_id: str, db: Session = Depends(get_db)):

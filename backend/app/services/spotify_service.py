@@ -25,11 +25,7 @@ class SpotifyService:
     def _refresh_user_token(self, user: User):
         """Rafraîchir le token Spotify d'un utilisateur"""
         try:
-            sp_oauth = SpotifyOAuth(
-                client_id=settings.SPOTIFY_CLIENT_ID,
-                client_secret=settings.SPOTIFY_CLIENT_SECRET,
-                redirect_uri=settings.SPOTIFY_REDIRECT_URI
-            )
+            sp_oauth = self._create_oauth_manager()
             
             token_info = sp_oauth.refresh_access_token(user.spotify_refresh_token)
             
@@ -45,6 +41,14 @@ class SpotifyService:
         except Exception as e:
             print(f"Token refresh failed: {e}")
             return False
+    
+    def _create_oauth_manager(self):
+        """Créer un manager OAuth pour rafraîchir les tokens"""
+        return SpotifyOAuth(
+            client_id=settings.SPOTIFY_CLIENT_ID,
+            client_secret=settings.SPOTIFY_CLIENT_SECRET,
+            redirect_uri=settings.SPOTIFY_REDIRECT_URI
+        )
     
     def get_auth_url(self):
         """Générer l'URL d'authentification Spotify"""

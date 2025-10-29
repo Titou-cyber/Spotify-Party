@@ -12,5 +12,5 @@ class Vote(Base):
     session_id = Column(String(36), nullable=False, index=True)
     user_id = Column(String(36), nullable=False, index=True)
     track_id = Column(String(100), nullable=False)
-    vote_type = Column(String(10), nullable=False)  # 'like' or 'dislike'
+    vote_type = Column(String(10), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

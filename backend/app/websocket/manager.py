@@ -1,4 +1,4 @@
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 from typing import Dict, List
 import json
 
@@ -14,7 +14,6 @@ class ConnectionManager:
         
         self.active_connections[session_id].append(websocket)
         
-        # Notifier les autres utilisateurs
         await self.broadcast_to_session(
             session_id,
             {
@@ -46,7 +45,6 @@ class ConnectionManager:
                 except Exception:
                     disconnected_connections.append(connection)
         
-        # Nettoyer les connexions déconnectées
         for connection in disconnected_connections:
             self.active_connections[session_id].remove(connection)
     
@@ -55,7 +53,6 @@ class ConnectionManager:
         message_type = data.get("type")
         
         if message_type == "vote":
-            # Diffuser le vote à tous les autres utilisateurs
             await self.broadcast_to_session(
                 session_id,
                 {
@@ -68,7 +65,6 @@ class ConnectionManager:
             )
         
         elif message_type == "track_change":
-            # Diffuser le changement de track
             await self.broadcast_to_session(
                 session_id,
                 {
@@ -77,18 +73,5 @@ class ConnectionManager:
                     "changed_by": user_id
                 }
             )
-        
-        elif message_type == "chat_message":
-            # Diffuser un message chat
-            await self.broadcast_to_session(
-                session_id,
-                {
-                    "type": "chat_message",
-                    "user_id": user_id,
-                    "message": data.get("message"),
-                    "timestamp": data.get("timestamp")
-                }
-            )
 
-# Instance globale du manager
 websocket_manager = ConnectionManager()
