@@ -204,17 +204,11 @@ from sqlmodel import func
 def vote_on_track(
     code: str,
     spotify_id: str = Query(...),
-    track_uri: str = Query(...),
     is_like: bool = Query(True),
     session: Session = Depends(get_session),
 ):
     """
-    Un utilisateur vote pour/contre une musique dans une room.
-
-    Params (query) :
-    - spotify_id : id Spotify du joueur
-    - track_uri  : uri de la musique (spotify:track:...)
-    - is_like    : true = j'aime, false = j'aime pas
+    Un utilisateur vote pour/contre la musique courante de la room.
     """
 
     # 1) Room
@@ -223,13 +217,16 @@ def vote_on_track(
     if not room:
         raise HTTPException(status_code=404, detail="Room introuvable")
 
+    if not room.current_track_uri:
+        raise HTTPException(status_code=400, detail="Aucune musique en cours pour cette room")
+
     # 2) User
     user_stmt = select(SpotifyUser).where(SpotifyUser.spotify_id == spotify_id)
     user = session.exec(user_stmt).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur Spotify introuvable")
 
-    # (Optionnel) vérifier que l'user est bien participant de la room
+    # 3) Vérifier qu'il fait bien partie de la room
     participant_stmt = select(RoomParticipant).where(
         RoomParticipant.room_id == room.id,
         RoomParticipant.user_id == user.id,
@@ -238,38 +235,39 @@ def vote_on_track(
     if not participant:
         raise HTTPException(status_code=403, detail="Utilisateur non participant de la room")
 
-    # 3) Enregistrer le vote
+    # 4) Enregistrer le vote pour la musique courante
     vote = Vote(
         room_id=room.id,
         user_id=user.id,
-        track_uri=track_uri,
+        track_uri=room.current_track_uri,
         is_like=is_like,
     )
     session.add(vote)
     session.commit()
 
-    # 4) Compter les likes pour cette musique dans cette room
+    # 5) Compter les likes
     likes_stmt = (
         select(func.count(Vote.id))
         .where(
             Vote.room_id == room.id,
-            Vote.track_uri == track_uri,
+            Vote.track_uri == room.current_track_uri,
             Vote.is_like == True,
         )
     )
     likes_count = session.exec(likes_stmt).one()
 
-    # 5) Décider si on lance la musique
     should_play = likes_count >= room.like_threshold
 
     return {
         "status": "vote_registered",
         "room_code": room.code,
-        "track_uri": track_uri,
+        "track_uri": room.current_track_uri,
+        "track_name": room.current_track_name,
         "likes": likes_count,
         "like_threshold": room.like_threshold,
         "play": should_play,
     }
+
 
 @router.get("/{code}/random-track")
 def get_random_track_for_room(
@@ -278,16 +276,17 @@ def get_random_track_for_room(
 ):
     """
     Choisit un joueur aléatoire dans la room,
-    puis une musique aléatoire dans ses playlists.
+    puis une musique aléatoire dans ses playlists,
+    et la stocke comme 'current track' de la room.
     """
 
-    # 1) Récupérer la room
+    # 1) Room
     room_stmt = select(Room).where(Room.code == code)
     room = session.exec(room_stmt).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room introuvable")
 
-    # 2) Récupérer les participants
+    # 2) Participants
     participants_stmt = select(RoomParticipant).where(
         RoomParticipant.room_id == room.id
     )
@@ -295,10 +294,9 @@ def get_random_track_for_room(
     if not participants:
         raise HTTPException(status_code=400, detail="Aucun participant dans la room")
 
-    # 3) Choisir un participant au hasard
+    # 3) Joueur aléatoire
     random_participant = random.choice(participants)
 
-    # 4) Récupérer le SpotifyUser correspondant
     user_stmt = select(SpotifyUser).where(SpotifyUser.id == random_participant.user_id)
     user = session.exec(user_stmt).first()
     if not user:
@@ -308,7 +306,7 @@ def get_random_track_for_room(
     if not access_token:
         raise HTTPException(status_code=500, detail="Pas de token Spotify pour cet utilisateur")
 
-    # 5) Choisir une musique aléatoire dans ses playlists
+    # 4) Musique aléatoire dans ses playlists
     track_info = pick_random_track_from_user(access_token)
 
     if "error" in track_info:
@@ -323,6 +321,16 @@ def get_random_track_for_room(
             "error": track_info["error"],
         }
 
+    # 5) Mettre à jour la room avec la musique courante
+    room.current_track_uri = track_info["track_uri"]
+    room.current_track_name = track_info["name"]
+    room.current_track_artists = track_info["artists"]
+    room.current_track_image_url = track_info["image_url"]
+
+    session.add(room)
+    session.commit()
+    session.refresh(room)
+
     return {
         "status": "ok",
         "room_code": room.code,
@@ -332,4 +340,88 @@ def get_random_track_for_room(
             "display_name": user.display_name,
         },
         "track": track_info,
+    }
+
+@router.get("/{code}/state")
+def get_room_state(
+    code: str,
+    session: Session = Depends(get_session),
+):
+    """
+    Renvoie l'état actuel de la room :
+    - infos room
+    - musique en cours (si existante)
+    - nombre de likes actuels sur cette musique
+    """
+    room_stmt = select(Room).where(Room.code == code)
+    room = session.exec(room_stmt).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room introuvable")
+
+    likes_count = 0
+    if room.current_track_uri:
+        likes_stmt = (
+            select(func.count(Vote.id))
+            .where(
+                Vote.room_id == room.id,
+                Vote.track_uri == room.current_track_uri,
+                Vote.is_like == True,
+            )
+        )
+        likes_count = session.exec(likes_stmt).one()
+
+    return {
+        "room": {
+            "code": room.code,
+            "like_threshold": room.like_threshold,
+            "is_active": room.is_active,
+        },
+        "current_track": {
+            "uri": room.current_track_uri,
+            "name": room.current_track_name,
+            "artists": room.current_track_artists,
+            "image_url": room.current_track_image_url,
+        },
+        "likes": likes_count,
+    }
+
+@router.get("/{code}/next-track")
+def get_next_track(
+    code: str,
+    session: Session = Depends(get_session),
+):
+    """
+    Renvoie la musique courante si elle a atteint le seuil de likes.
+    Utilisé par l'hôte pour lancer la musique via Spotify Web API.
+    """
+
+    room_stmt = select(Room).where(Room.code == code)
+    room = session.exec(room_stmt).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room introuvable")
+
+    if not room.current_track_uri:
+        return {"ready_to_play": False, "reason": "no_track_selected"}
+
+    # Calculer le nombre de likes actuels
+    likes_stmt = (
+        select(func.count(Vote.id))
+        .where(
+            Vote.room_id == room.id,
+            Vote.track_uri == room.current_track_uri,
+            Vote.is_like == True,
+        )
+    )
+    likes_count = session.exec(likes_stmt).one()
+
+    ready = likes_count >= room.like_threshold
+
+    return {
+        "ready_to_play": ready,
+        "track_uri": room.current_track_uri,
+        "name": room.current_track_name,
+        "artists": room.current_track_artists,
+        "image_url": room.current_track_image_url,
+        "likes": likes_count,
+        "threshold": room.like_threshold
     }
