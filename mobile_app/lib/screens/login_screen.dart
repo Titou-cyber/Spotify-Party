@@ -24,25 +24,33 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkExistingAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(AppConstants.keyAccessToken);
-    
-    if (token != null && token.isNotEmpty) {
-      Navigator.pushReplacementNamed(context, '/home');
-      return;
-    }
-    
-    await _getAuthUrl();
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString(AppConstants.keyAccessToken);
+  
+  if (token != null && token.isNotEmpty) {
+    Navigator.pushReplacementNamed(context, '/home');
+    return;
   }
+  
+  // Ne charger l'URL que si nécessaire
+  setState(() {
+    _isLoading = false;  // Afficher l'interface immédiatement
+  });
+  
+  // Charger l'URL en arrière-plan
+  _getAuthUrl();
+}
 
   Future<void> _getAuthUrl() async {
-    try {
-      final response = await _apiService.getAuthUrl();
-      setState(() {
-        _authUrl = response['auth_url'];
-        _isLoading = false;
-      });
-    } catch (e) {
+  try {
+    final response = await _apiService.getAuthUrl().timeout(
+      const Duration(seconds: 5),
+    );
+    setState(() {
+      _authUrl = response['auth_url'];
+    });
+  } catch (e) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erreur de connexion: $e'),
@@ -51,6 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
   }
+}
 
   Future<void> _launchBrowser() async {
     if (_authUrl != null) {
