@@ -11,6 +11,10 @@ from app.models.room import Room
 from app.models.user import SpotifyUser
 from app.models.room_participant import RoomParticipant
 
+from app.models.room_participant import RoomParticipant
+from app.models.vote import Vote
+
+
 router = APIRouter(
     prefix="/rooms",
     tags=["rooms"],
@@ -186,4 +190,80 @@ def list_participants(
     return {
         "room_code": room.code,
         "participants": users_data,
+    }
+
+from typing import Optional
+from fastapi import Query
+from sqlmodel import func
+
+
+@router.post("/{code}/vote")
+def vote_on_track(
+    code: str,
+    spotify_id: str = Query(...),
+    track_uri: str = Query(...),
+    is_like: bool = Query(True),
+    session: Session = Depends(get_session),
+):
+    """
+    Un utilisateur vote pour/contre une musique dans une room.
+
+    Params (query) :
+    - spotify_id : id Spotify du joueur
+    - track_uri  : uri de la musique (spotify:track:...)
+    - is_like    : true = j'aime, false = j'aime pas
+    """
+
+    # 1) Room
+    room_stmt = select(Room).where(Room.code == code)
+    room = session.exec(room_stmt).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room introuvable")
+
+    # 2) User
+    user_stmt = select(SpotifyUser).where(SpotifyUser.spotify_id == spotify_id)
+    user = session.exec(user_stmt).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur Spotify introuvable")
+
+    # (Optionnel) vérifier que l'user est bien participant de la room
+    participant_stmt = select(RoomParticipant).where(
+        RoomParticipant.room_id == room.id,
+        RoomParticipant.user_id == user.id,
+    )
+    participant = session.exec(participant_stmt).first()
+    if not participant:
+        raise HTTPException(status_code=403, detail="Utilisateur non participant de la room")
+
+    # 3) Enregistrer le vote
+    vote = Vote(
+        room_id=room.id,
+        user_id=user.id,
+        track_uri=track_uri,
+        is_like=is_like,
+    )
+    session.add(vote)
+    session.commit()
+
+    # 4) Compter les likes pour cette musique dans cette room
+    likes_stmt = (
+        select(func.count(Vote.id))
+        .where(
+            Vote.room_id == room.id,
+            Vote.track_uri == track_uri,
+            Vote.is_like == True,
+        )
+    )
+    likes_count = session.exec(likes_stmt).one()
+
+    # 5) Décider si on lance la musique
+    should_play = likes_count >= room.like_threshold
+
+    return {
+        "status": "vote_registered",
+        "room_code": room.code,
+        "track_uri": track_uri,
+        "likes": likes_count,
+        "like_threshold": room.like_threshold,
+        "play": should_play,
     }
