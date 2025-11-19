@@ -1,5 +1,5 @@
 class AppConstants {
-  static const String apiUrl = 'http://192.168.1.38:8000'; // VOTRE IP
+  static const String apiUrl = 'http://localhost:8000'; // VOTRE IP
   static const String keyAccessToken = 'access_token';
   static const String keyUserId = 'user_id';
   static const String keyUserData = 'user_data';
