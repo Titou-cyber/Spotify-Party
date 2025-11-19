@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
+import '../models/session.dart';
 
 class CreateSessionScreen extends StatefulWidget {
   const CreateSessionScreen({super.key});
@@ -14,11 +16,39 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
   bool _isLoading = false;
   List<dynamic> _playlists = [];
   List<String> _selectedPlaylists = [];
+  int _votesRequired = 5;
+  Session? _createdSession;
 
   @override
   void initState() {
     super.initState();
-    _loadPlaylists();
+    _initialize();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  // 🆕 Initialisation avec chargement du token
+  Future<void> _initialize() async {
+    try {
+      // Charger le token d'abord
+      await _apiService.loadToken();
+      
+      // Ensuite charger les playlists
+      await _loadPlaylists();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur d\'initialisation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadPlaylists() async {
@@ -28,12 +58,14 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
         _playlists = playlists;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur chargement playlists: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur chargement playlists: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -51,23 +83,121 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final session = await _apiService.createSession(_selectedPlaylists);
+      final session = await _apiService.createSession(
+        playlistIds: _selectedPlaylists,
+        name: _nameController.text.isEmpty ? null : _nameController.text,
+        votesRequired: _votesRequired,
+      );
       
-      Navigator.pushReplacementNamed(
-        context,
-        '/session',
-        arguments: session,
-      );
+      setState(() {
+        _createdSession = session;
+      });
+
+      // Afficher le code de session
+      _showSessionCodeDialog(session);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur création session: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur création session: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  void _showSessionCodeDialog(Session session) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF282828),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Color(0xFF1DB954), size: 28),
+            SizedBox(width: 10),
+            Text(
+              'Session créée !',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Partagez ce code avec vos amis :',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1DB954),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    session.code,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: const Icon(Icons.copy, color: Colors.black),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: session.code));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Code copié !'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '${session.participants.length} participant(s)',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            Text(
+              'Votes requis: ${session.votesRequired}',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Fermer le dialog
+              Navigator.pushReplacementNamed(
+                context,
+                '/session',
+                arguments: session,
+              );
+            },
+            child: const Text(
+              'Continuer',
+              style: TextStyle(color: Color(0xFF1DB954)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _togglePlaylist(String playlistId) {
@@ -94,6 +224,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Nom de la session
             TextField(
               controller: _nameController,
               style: const TextStyle(color: Colors.white),
@@ -106,8 +237,51 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            
+            // Nombre de votes requis
+            Row(
+              children: [
+                const Text(
+                  'Votes requis:',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Slider(
+                    value: _votesRequired.toDouble(),
+                    min: 1,
+                    max: 20,
+                    divisions: 19,
+                    activeColor: const Color(0xFF1DB954),
+                    label: _votesRequired.toString(),
+                    onChanged: (value) {
+                      setState(() {
+                        _votesRequired = value.toInt();
+                      });
+                    },
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1DB954),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _votesRequired.toString(),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
             
+            // Liste des playlists
             const Text(
               'Sélectionnez vos playlists:',
               style: TextStyle(
@@ -144,16 +318,22 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
                             leading: playlist['image_url'] != null && playlist['image_url'].isNotEmpty
-                                ? Image.network(
-                                    playlist['image_url'],
-                                    width: 50,
-                                    height: 50,
-                                    fit: BoxFit.cover,
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Image.network(
+                                      playlist['image_url'],
+                                      width: 50,
+                                      height: 50,
+                                      fit: BoxFit.cover,
+                                    ),
                                   )
                                 : Container(
                                     width: 50,
                                     height: 50,
-                                    color: Colors.grey[800],
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[800],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
                                     child: const Icon(
                                       Icons.music_note,
                                       color: Colors.white,
@@ -182,6 +362,8 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
             ),
             
             const SizedBox(height: 20),
+            
+            // Bouton créer
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

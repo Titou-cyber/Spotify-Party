@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, JSON, Text
+from sqlalchemy import Column, String, Boolean, DateTime, JSON, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import uuid
@@ -16,6 +16,7 @@ class Session(Base):
     participants = Column(JSON, default=list)
     current_track = Column(JSON, nullable=True)
     track_queue = Column(JSON, default=list)
+    votes_required = Column(Integer, default=5, nullable=False)  # 🆕 Nombre de votes requis
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
