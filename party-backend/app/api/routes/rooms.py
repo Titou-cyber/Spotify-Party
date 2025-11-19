@@ -14,6 +14,9 @@ from app.models.room_participant import RoomParticipant
 from app.models.room_participant import RoomParticipant
 from app.models.vote import Vote
 
+from app.services.spotify import pick_random_track_from_user
+from app.models.vote import Vote  # si pas déjà importé
+
 
 router = APIRouter(
     prefix="/rooms",
@@ -266,4 +269,67 @@ def vote_on_track(
         "likes": likes_count,
         "like_threshold": room.like_threshold,
         "play": should_play,
+    }
+
+@router.get("/{code}/random-track")
+def get_random_track_for_room(
+    code: str,
+    session: Session = Depends(get_session),
+):
+    """
+    Choisit un joueur aléatoire dans la room,
+    puis une musique aléatoire dans ses playlists.
+    """
+
+    # 1) Récupérer la room
+    room_stmt = select(Room).where(Room.code == code)
+    room = session.exec(room_stmt).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room introuvable")
+
+    # 2) Récupérer les participants
+    participants_stmt = select(RoomParticipant).where(
+        RoomParticipant.room_id == room.id
+    )
+    participants = session.exec(participants_stmt).all()
+    if not participants:
+        raise HTTPException(status_code=400, detail="Aucun participant dans la room")
+
+    # 3) Choisir un participant au hasard
+    random_participant = random.choice(participants)
+
+    # 4) Récupérer le SpotifyUser correspondant
+    user_stmt = select(SpotifyUser).where(SpotifyUser.id == random_participant.user_id)
+    user = session.exec(user_stmt).first()
+    if not user:
+        raise HTTPException(status_code=500, detail="Participant lié à aucun SpotifyUser")
+
+    access_token = user.access_token
+    if not access_token:
+        raise HTTPException(status_code=500, detail="Pas de token Spotify pour cet utilisateur")
+
+    # 5) Choisir une musique aléatoire dans ses playlists
+    track_info = pick_random_track_from_user(access_token)
+
+    if "error" in track_info:
+        return {
+            "status": "error",
+            "room_code": room.code,
+            "user": {
+                "id": user.id,
+                "spotify_id": user.spotify_id,
+                "display_name": user.display_name,
+            },
+            "error": track_info["error"],
+        }
+
+    return {
+        "status": "ok",
+        "room_code": room.code,
+        "chosen_user": {
+            "id": user.id,
+            "spotify_id": user.spotify_id,
+            "display_name": user.display_name,
+        },
+        "track": track_info,
     }
