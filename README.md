@@ -17,26 +17,47 @@ Backend permettant de gérer une soirée musicale interactive où chaque joueur 
 ## 📁 Structure du projet
 
 party-backend/
+
 │── app/
+
 │ ├── main.py
+
 │ ├── core/
+
 │ │ └── config.py
+
 │ ├── api/
+
 │ │ └── routes/
+
 │ │ ├── auth.py
+
 │ │ └── rooms.py
+
 │ ├── db/
+
 │ │ └── session.py
+
 │ ├── models/
+
 │ │ ├── user.py
+
 │ │ ├── room.py
+
 │ │ ├── room_participant.py
+
 │ │ └── vote.py
+
 │ └── services/
+
 │ └── spotify.py
+
 │
+
 ├── .env
+
 ├── requirements.txt
+
 └── venv/
 
 
