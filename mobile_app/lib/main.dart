@@ -55,7 +55,11 @@ class _MyAppState extends State<MyApp> {
       final accessToken = uri.queryParameters['access_token'];
       final authError = uri.queryParameters['auth_error'];
       
-      if (accessToken != null) {
+      print('🌐 URL détectée: ${uri.toString()}');
+      print('🔑 AccessToken dans URL: $accessToken');
+      print('❌ AuthError dans URL: $authError');
+      
+      if (accessToken != null && accessToken.isNotEmpty) {
         print('🔑 Token détecté dans l\'URL, connexion automatique...');
         await _handleUrlAuth(uri.queryParameters);
         setState(() {
@@ -75,6 +79,9 @@ class _MyAppState extends State<MyApp> {
     final token = prefs.getString(AppConstants.keyAccessToken);
     final userId = prefs.getString(AppConstants.keyUserId);
     
+    print('📝 Token stocké: $token');
+    print('👤 UserId stocké: $userId');
+    
     if (token != null && userId != null && token.isNotEmpty) {
       setState(() {
         _initialRoute = '/home';
@@ -90,8 +97,21 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _handleUrlAuth(Map<String, String> params) async {
     try {
-      final accessToken = params['access_token']!;
-      final userId = params['user_id']!;
+      final accessToken = params['access_token'];
+      final userId = params['user_id'];
+      
+      // VÉRIFICATION DE NULLITÉ AVANT D'UTILISER !
+      if (accessToken == null || accessToken.isEmpty) {
+        print('❌ AccessToken manquant dans les paramètres');
+        return;
+      }
+      
+      if (userId == null || userId.isEmpty) {
+        print('❌ UserId manquant dans les paramètres');
+        return;
+      }
+      
+      print('✅ Paramètres valides, sauvegarde du token...');
       
       await _apiService.saveToken(accessToken);
       
@@ -110,9 +130,14 @@ class _MyAppState extends State<MyApp> {
   void _cleanUrl() {
     // Nettoyer l'URL des paramètres d'authentification
     if (kIsWeb) {
-      final cleanUrl = '${AppConstants.apiUrl}/';
-      // Utiliser l'API History pour changer l'URL sans recharger
-      js.context.callMethod('history.replaceState', [null, '', cleanUrl]);
+      try {
+        final cleanUrl = '${AppConstants.apiUrl}/';
+        // Utiliser l'API History pour changer l'URL sans recharger
+        js.context.callMethod('history.replaceState', [null, '', cleanUrl]);
+        print('🔧 URL nettoyée: $cleanUrl');
+      } catch (e) {
+        print('⚠️ Impossible de nettoyer l\'URL: $e');
+      }
     }
   }
 
