@@ -32,10 +32,10 @@ async def health_check():
     return {"status": "healthy"}
 
 # Include routers avec préfixe /api
-app.include_router(auth_router, tags=["auth"])
-app.include_router(sessions_router, tags=["sessions"])
-app.include_router(votes_router, tags=["votes"])
-app.include_router(spotify_router, tags=["spotify"])
+app.include_router(auth_router)
+app.include_router(sessions_router)
+app.include_router(votes_router)
+app.include_router(spotify_router)
 
 # ===== SERVIR LES FICHIERS STATIQUES FLUTTER =====
 # CHEMIN CORRIGÉ : utiliser frontend/ au lieu de mobile_app/build/web
@@ -66,8 +66,8 @@ if os.path.exists(static_path):
     # Catch-all pour le routing Flutter (SPA) - DOIT ÊTRE EN DERNIER
     @app.get("/{full_path:path}")
     async def catch_all(full_path: str):
-        # NE PAS intercepter les routes API
-        if full_path.startswith("api/"):
+        # NE PAS intercepter les routes API - CORRECTION ICI
+        if full_path.startswith("api/") or full_path.startswith("auth/"):
             return {"error": "API route not found"}
         
         # Si c'est un fichier qui existe, le servir
