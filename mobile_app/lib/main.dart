@@ -37,6 +37,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final ApiService _apiService = ApiService();
   String? _initialRoute = '/';
+  bool _isCheckingAuth = true;
 
   @override
   void initState() {
@@ -47,24 +48,80 @@ class _MyAppState extends State<MyApp> {
   Future<void> _determineInitialRoute() async {
     await _apiService.loadToken();
     
+    // Vérifier d'abord les paramètres d'URL (pour le callback Spotify)
+    if (kIsWeb) {
+      final uri = Uri.base;
+      final accessToken = uri.queryParameters['access_token'];
+      final userId = uri.queryParameters['user_id'];
+      
+      print('🌐 URL analysée: ${uri.toString()}');
+      print('🔑 Token dans URL: $accessToken');
+      print('👤 UserId dans URL: $userId');
+      
+      // Si on a un token dans l'URL, on sauvegarde et on redirige vers home
+      if (accessToken != null && accessToken.isNotEmpty && userId != null && userId.isNotEmpty) {
+        print('✅ Token détecté dans URL, sauvegarde...');
+        await _apiService.saveToken(accessToken);
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(AppConstants.keyUserId, userId);
+        
+        // Pas de nettoyage d'URL - on garde les paramètres
+        print('ℹ️ Utilisateur connecté avec succès!');
+        
+        setState(() {
+          _initialRoute = '/home';
+          _isCheckingAuth = false;
+        });
+        return;
+      }
+    }
+    
+    // Vérifier l'authentification existante dans le storage
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AppConstants.keyAccessToken);
     final userId = prefs.getString(AppConstants.keyUserId);
     
-    // Vérification simple sans opérateurs !
-    if (token != null && userId != null) {
+    print('📝 Token stocké: $token');
+    print('👤 UserId stocké: $userId');
+    
+    if (token != null && token.isNotEmpty && userId != null && userId.isNotEmpty) {
       setState(() {
         _initialRoute = '/home';
+        _isCheckingAuth = false;
       });
     } else {
       setState(() {
         _initialRoute = '/';
+        _isCheckingAuth = false;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Afficher un loading pendant la vérification de l'authentification
+    if (_isCheckingAuth) {
+      return MaterialApp(
+        home: Scaffold(
+          backgroundColor: const Color(0xFF191414),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(color: Color(0xFF1DB954)),
+                const SizedBox(height: 20),
+                const Text(
+                  'Connexion en cours...',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return MaterialApp(
       title: 'Spotify Party',
       theme: ThemeData(

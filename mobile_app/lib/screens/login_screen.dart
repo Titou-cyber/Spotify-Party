@@ -20,10 +20,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _checkExistingAuth();
+    _initializeAuth();
   }
 
-  Future<void> _checkExistingAuth() async {
+  Future<void> _initializeAuth() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AppConstants.keyAccessToken);
     
@@ -33,77 +33,44 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       return;
     }
-    
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+
+    setState(() => _isLoading = false);
   }
 
   Future<void> _loginWithSpotify() async {
     try {
-      // RÉCUPÉRER L'URL D'AUTH ET REDIRIGER VERS ELLE
-      final response = await _apiService.getAuthUrl();
-      final authUrl = response['auth_url'];
-      
-      print('🔗 Redirection vers: $authUrl');
+      final authUrl = '${AppConstants.apiUrl}/api/auth/login';
       
       if (kIsWeb) {
-        // Web : ouvrir dans le même onglet
         await launchUrl(
           Uri.parse(authUrl),
-          mode: LaunchMode.inAppWebView, // Important pour rester dans l'app
+          webOnlyWindowName: '_self',
         );
       } else {
-        // Pour mobile : ouvrir l'URL d'auth
-        if (await canLaunchUrl(Uri.parse(authUrl))) {
-          await launchUrl(Uri.parse(authUrl));
-        } else {
-          throw 'Impossible d\'ouvrir l\'URL d\'authentification';
-        }
+        _showCodeInputDialog();
       }
     } catch (e) {
-      print('❌ Erreur login: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur de connexion: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Erreur: $e')),
         );
       }
     }
   }
 
-  void _showManualAuthDialog() {
+  void _showCodeInputDialog() {
     final codeController = TextEditingController();
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Authentification Spotify'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Pour mobile, utilisez cette méthode:'),
-            const SizedBox(height: 10),
-            Text(
-              '1. Allez sur: ${AppConstants.apiUrl}/api/auth/login\n'
-              '2. Autorisez l\'application\n'
-              '3. Copiez le code de l\'URL\n'
-              '4. Collez-le ci-dessous',
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: codeController,
-              decoration: const InputDecoration(
-                labelText: 'Code d\'autorisation',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
+        title: const Text('Code Spotify'),
+        content: TextField(
+          controller: codeController,
+          decoration: const InputDecoration(
+            hintText: 'Collez le code Spotify ici',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
           TextButton(
@@ -113,32 +80,22 @@ class _LoginScreenState extends State<LoginScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _submitManualCode(codeController.text);
+              _submitCode(codeController.text);
             },
-            child: const Text('Se connecter'),
+            child: const Text('Valider'),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _submitManualCode(String code) async {
-    if (code.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Veuillez entrer le code'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-      return;
-    }
-
+  Future<void> _submitCode(String code) async {
+    if (code.isEmpty) return;
+    
     if (mounted) {
       setState(() => _isLoading = true);
     }
-
+    
     try {
       final result = await _apiService.handleCallback(code);
       await _apiService.saveToken(result['access_token']);
@@ -153,10 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Erreur: $e')),
         );
         setState(() => _isLoading = false);
       }
@@ -175,72 +129,57 @@ class _LoginScreenState extends State<LoginScreen> {
                   CircularProgressIndicator(color: Color(0xFF1DB954)),
                   SizedBox(height: 20),
                   Text(
-                    'Vérification...',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    'Chargement...',
+                    style: TextStyle(color: Colors.white),
                   ),
                 ],
               ),
             )
-          : Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.music_note,
-                    size: 80,
-                    color: Color(0xFF1DB954),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Spotify Party',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+          : Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.music_note,
+                      size: 80,
+                      color: Color(0xFF1DB954),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Connectez-vous avec Spotify pour commencer',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 40),
-                  
-                  ElevatedButton(
-                    onPressed: _loginWithSpotify,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1DB954),
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: const Text(
-                      'Se connecter avec Spotify',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  
-                  if (!kIsWeb) ...[
                     const SizedBox(height: 20),
                     const Text(
-                      'Sur mobile, vous devrez copier-coller le code d\'autorisation',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
-                      textAlign: TextAlign.center,
+                      'Spotify Party',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: _showManualAuthDialog,
+                    const Text(
+                      'Écoutez et votez pour la musique ensemble',
+                      style: TextStyle(color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
+                    
+                    ElevatedButton(
+                      onPressed: _loginWithSpotify,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1DB954),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
                       child: const Text(
-                        'Méthode manuelle',
-                        style: TextStyle(color: Color(0xFF1DB954)),
+                        'Se connecter avec Spotify',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
     );

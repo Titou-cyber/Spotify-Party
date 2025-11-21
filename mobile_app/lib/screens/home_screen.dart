@@ -12,6 +12,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _userName;
+  String? _userEmail;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -24,8 +26,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final userData = prefs.getString(AppConstants.keyUserData);
     
     if (userData != null) {
+      try {
+        final userMap = json.decode(userData);
+        setState(() {
+          _userName = userMap['display_name'] ?? 'Utilisateur Spotify';
+          _userEmail = userMap['email'];
+          _isLoading = false;
+        });
+      } catch (e) {
+        setState(() {
+          _userName = 'Utilisateur';
+          _isLoading = false;
+        });
+      }
+    } else {
+      final userId = prefs.getString(AppConstants.keyUserId);
       setState(() {
-        _userName = 'Utilisateur';
+        _userName = userId != null ? 'Utilisateur Spotify' : 'Utilisateur';
+        _isLoading = false;
       });
     }
   }
@@ -39,16 +57,57 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(AppConstants.keyAccessToken);
-    await prefs.remove(AppConstants.keyUserId);
-    await prefs.remove(AppConstants.keyUserData);
-    
-    Navigator.pushReplacementNamed(context, '/');
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Déconnexion'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(AppConstants.keyAccessToken);
+      await prefs.remove(AppConstants.keyUserId);
+      await prefs.remove(AppConstants.keyUserData);
+      
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/');
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF191414),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(color: Color(0xFF1DB954)),
+              const SizedBox(height: 20),
+              const Text(
+                'Chargement...',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF191414),
       appBar: AppBar(
@@ -71,6 +130,16 @@ class _HomeScreenState extends State<HomeScreen> {
             if (_userName != null)
               Column(
                 children: [
+                  CircleAvatar(
+                    backgroundColor: const Color(0xFF1DB954),
+                    radius: 40,
+                    child: Icon(
+                      Icons.person,
+                      size: 40,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'Bonjour, $_userName!',
                     style: const TextStyle(
@@ -79,7 +148,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  if (_userEmail != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _userEmail!,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 30),
                 ],
               ),
             
@@ -161,7 +240,11 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 10),
             Text(
               text,
-              style: TextStyle(color: Colors.white, fontSize: 18),
+              style: const TextStyle(
+                color: Colors.white, 
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
