@@ -14,13 +14,26 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _userName;
   String? _userEmail;
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     print('🏠 HomeScreen initState');
-    _loadUserData();
-    _verifyAuth();
+    _initializeHome();
+  }
+
+  Future<void> _initializeHome() async {
+    try {
+      await _verifyAuth();
+      await _loadUserData();
+    } catch (e) {
+      print('❌ Erreur initialisation HomeScreen: $e');
+      setState(() {
+        _errorMessage = 'Erreur de chargement: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _verifyAuth() async {
@@ -32,7 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
     print('📝 Token: $token');
     print('👤 UserId: $userId');
     
-    if (token == null || userId == null) {
+    // VÉRIFICATION SANS OPÉRATEUR !
+    if (token == null || token.isEmpty || userId == null || userId.isEmpty) {
       print('❌ Non authentifié, redirection vers login');
       // Rediriger vers login si pas authentifié
       if (mounted) {
@@ -42,9 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     
     print('✅ Authentifié avec succès');
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   Future<void> _loadUserData() async {
@@ -54,24 +65,27 @@ class _HomeScreenState extends State<HomeScreen> {
     
     print('📋 UserData: $userData');
     
-    if (userData != null) {
+    if (userData != null && userData.isNotEmpty) {
       try {
         final userMap = json.decode(userData);
         print('👤 Données utilisateur décodées: $userMap');
         setState(() {
           _userName = userMap['display_name'] ?? 'Utilisateur';
           _userEmail = userMap['email'];
+          _isLoading = false;
         });
       } catch (e) {
         print('❌ Erreur lecture user data: $e');
         setState(() {
           _userName = 'Utilisateur';
+          _isLoading = false;
         });
       }
     } else {
       print('⚠️ Aucune donnée utilisateur trouvée');
       setState(() {
         _userName = 'Utilisateur';
+        _isLoading = false;
       });
     }
   }
@@ -135,6 +149,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Chargement...',
                 style: TextStyle(color: Colors.white, fontSize: 16),
               ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 20),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
           ),
         ),
@@ -142,9 +164,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF191414), // Fond noir Spotify
+      backgroundColor: const Color(0xFF191414),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF191414), // Fond noir
+        backgroundColor: const Color(0xFF191414),
         elevation: 0,
         title: const Text(
           'Spotify Party',
@@ -158,108 +180,105 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Container(
-        color: const Color(0xFF191414), // Fond noir garanti
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Section utilisateur
-              if (_userName != null)
-                Column(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: const Color(0xFF1DB954),
-                      radius: 40,
-                      child: Icon(
-                        Icons.person,
-                        size: 40,
-                        color: Colors.black,
-                      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Section utilisateur
+            if (_userName != null)
+              Column(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: const Color(0xFF1DB954),
+                    radius: 40,
+                    child: Icon(
+                      Icons.person,
+                      size: 40,
+                      color: Colors.black,
                     ),
-                    const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Bonjour, $_userName!',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (_userEmail != null) ...[
+                    const SizedBox(height: 8),
                     Text(
-                      'Bonjour, $_userName!',
+                      _userEmail!,
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                        fontSize: 16,
                       ),
                     ),
-                    if (_userEmail != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        _userEmail!,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 30),
                   ],
-                ),
-              
-              // Icone principale
-              const Icon(
-                Icons.music_note,
-                size: 80,
-                color: Color(0xFF1DB954),
+                  const SizedBox(height: 30),
+                ],
               ),
-              const SizedBox(height: 20),
-              
-              const Text(
-                'Spotify Party',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+            
+            // Icone principale
+            const Icon(
+              Icons.music_note,
+              size: 80,
+              color: Color(0xFF1DB954),
+            ),
+            const SizedBox(height: 20),
+            
+            const Text(
+              'Spotify Party',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 10),
-              
-              const Text(
-                'Créez ou rejoignez une session musicale collaborative',
+            ),
+            const SizedBox(height: 10),
+            
+            const Text(
+              'Créez ou rejoignez une session musicale collaborative',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 50),
+            
+            // Boutons d'action
+            _buildActionButton(
+              "Créer une session",
+              Icons.add,
+              const Color(0xFF1DB954),
+              _createSession,
+            ),
+            const SizedBox(height: 20),
+            
+            _buildActionButton(
+              "Rejoindre une session",
+              Icons.group,
+              Colors.blue,
+              _joinSession,
+            ),
+            const SizedBox(height: 30),
+            
+            // Information
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.0),
+              child: Text(
+                'Partagez vos playlists et votez pour la prochaine musique en temps réel!',
                 style: TextStyle(
                   color: Colors.grey,
-                  fontSize: 16,
+                  fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 50),
-              
-              // Boutons d'action
-              _buildActionButton(
-                "Créer une session",
-                Icons.add,
-                const Color(0xFF1DB954),
-                _createSession,
-              ),
-              const SizedBox(height: 20),
-              
-              _buildActionButton(
-                "Rejoindre une session",
-                Icons.group,
-                Colors.blue,
-                _joinSession,
-              ),
-              const SizedBox(height: 30),
-              
-              // Information
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.0),
-                child: Text(
-                  'Partagez vos playlists et votez pour la prochaine musique en temps réel!',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
