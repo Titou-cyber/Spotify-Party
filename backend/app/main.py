@@ -23,7 +23,6 @@ app.add_middleware(
 )
 
 # ===== ROUTES API (DOIVENT ÊTRE AVANT LE CATCH-ALL) =====
-# Routes API de base
 @app.get("/api")
 async def api_root():
     return {"message": "Spotify Party API", "version": "1.0.0"}
@@ -38,13 +37,18 @@ app.include_router(sessions_router, tags=["sessions"])
 app.include_router(votes_router, tags=["votes"])
 app.include_router(spotify_router, tags=["spotify"])
 
-# ===== SERVIR LES FICHIERS STATIQUES FLUTTER (APRÈS LES API) =====
+# ===== SERVIR LES FICHIERS STATIQUES FLUTTER =====
+# Chemin relatif depuis backend/
 static_path = os.path.join(os.path.dirname(__file__), "../../mobile_app/build/web")
 
 # Vérifier si le dossier build existe
 if os.path.exists(static_path):
+    print(f"✅ Serving Flutter app from: {static_path}")
+    
     # Monter les dossiers statiques
-    app.mount("/assets", StaticFiles(directory=os.path.join(static_path, "assets")), name="assets")
+    assets_path = os.path.join(static_path, "assets")
+    if os.path.exists(assets_path):
+        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
     
     # Monter canvaskit si existe
     canvaskit_path = os.path.join(static_path, "canvaskit")
@@ -54,7 +58,10 @@ if os.path.exists(static_path):
     # Route principale pour servir l'app Flutter
     @app.get("/")
     async def serve_app():
-        return FileResponse(os.path.join(static_path, "index.html"))
+        index_path = os.path.join(static_path, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"error": "index.html not found"}
     
     # Catch-all pour le routing Flutter (SPA) - DOIT ÊTRE EN DERNIER
     @app.get("/{full_path:path}")
@@ -69,16 +76,23 @@ if os.path.exists(static_path):
             return FileResponse(file_path)
         
         # Sinon, servir index.html pour le routing côté client
-        return FileResponse(os.path.join(static_path, "index.html"))
+        index_path = os.path.join(static_path, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"error": "Not found"}
 else:
-    # Si le build n'existe pas, servir l'API uniquement
+    print(f"⚠️ Flutter build not found at: {static_path}")
+    print("Run 'cd mobile_app && flutter build web' first")
+    
     @app.get("/")
     async def root():
         return {
-            "message": "Spotify Party API - Flutter build not found. Run 'flutter build web' first.", 
-            "version": "1.0.0"
+            "message": "Spotify Party API - Flutter build not found", 
+            "version": "1.0.0",
+            "hint": "Run 'cd mobile_app && flutter build web' to build the frontend"
         }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
