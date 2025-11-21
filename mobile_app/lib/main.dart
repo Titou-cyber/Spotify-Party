@@ -5,6 +5,7 @@ import 'screens/create_session_screen.dart';
 import 'screens/join_session_screen.dart';
 import 'screens/session_screen.dart';
 import 'services/api_service.dart';
+import 'screens/auth_callback_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
