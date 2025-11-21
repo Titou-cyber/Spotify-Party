@@ -1,9 +1,6 @@
 class AppConstants {
-  // Pour tester sur iPhone via PWA (même domaine que le frontend)
-  static const String apiUrl = '';  // Chaîne vide car /api est déjà dans les endpoints
-  
   // OU pour continuer à développer sur PC avec Flutter en développement :
-  // static const String apiUrl = 'http://172.20.10.4:8000';
+  static const String apiUrl = 'https://spotify-party.onrender.com';
   
   static const String keyAccessToken = 'access_token';
   static const String keyUserId = 'user_id';

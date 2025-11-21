@@ -88405,7 +88405,7 @@ return A.G($async$wQ,r)},
 xz(){var s=0,r=A.H(t.H),q=1,p=[],o=this,n,m,l,k
 var $async$xz=A.D(function(a,b){if(a===1){p.push(b)
 s=q}while(true)switch(s){case 0:q=3
-n="/api/auth/login"
+n="https://spotify-party.onrender.com/api/auth/login"
 s=6
 return A.C(A.aB4(A.d5(n,0,null),"_self"),$async$xz)
 case 6:q=1
@@ -88703,7 +88703,7 @@ return r},
 kg(a){return this.ald(a)},
 ald(a){var s=0,r=A.H(t.lG),q,p=this,o,n,m
 var $async$kg=A.D(function(b,c){if(b===1)return A.E(c,r)
-while(true)switch(s){case 0:o=A.d5("/api/sessions/create",0,null)
+while(true)switch(s){case 0:o=A.d5("https://spotify-party.onrender.com/api/sessions/create",0,null)
 n=p.gm5()
 s=3
 return A.C(A.a_E(o,B.a0.hy(A.Z(["playlist_ids",a],t.N,t.yp)),n),$async$kg)
@@ -88716,7 +88716,7 @@ return A.G($async$kg,r)},
 AB(a){return this.aoR(a)},
 aoR(a){var s=0,r=A.H(t.lG),q,p=this,o,n,m,l
 var $async$AB=A.D(function(b,c){if(b===1)return A.E(c,r)
-while(true)switch(s){case 0:o=A.d5("/api/sessions/join",0,null)
+while(true)switch(s){case 0:o=A.d5("https://spotify-party.onrender.com/api/sessions/join",0,null)
 n=p.gm5()
 m=t.N
 s=3
@@ -88731,7 +88731,7 @@ AF(a){return this.aoX(a)},
 aoX(a){var s=0,r=A.H(t.H),q=this
 var $async$AF=A.D(function(b,c){if(b===1)return A.E(c,r)
 while(true)switch(s){case 0:s=2
-return A.C(A.a_E(A.d5("/api/sessions/"+a+"/leave",0,null),null,q.gm5()),$async$AF)
+return A.C(A.a_E(A.d5("https://spotify-party.onrender.com"+("/api/sessions/"+a+"/leave"),0,null),null,q.gm5()),$async$AF)
 case 2:if(c.b!==200)throw A.e(A.dj("Failed to leave session"))
 return A.F(null,r)}})
 return A.G($async$AF,r)},
@@ -88739,14 +88739,14 @@ zd(a){return this.ajM(a)},
 ajM(a){var s=0,r=A.H(t.H),q=this
 var $async$zd=A.D(function(b,c){if(b===1)return A.E(c,r)
 while(true)switch(s){case 0:s=2
-return A.C(A.a_E(A.d5("/api/sessions/"+a+"/close",0,null),null,q.gm5()),$async$zd)
+return A.C(A.a_E(A.d5("https://spotify-party.onrender.com"+("/api/sessions/"+a+"/close"),0,null),null,q.gm5()),$async$zd)
 case 2:if(c.b!==200)throw A.e(A.dj("Failed to close session"))
 return A.F(null,r)}})
 return A.G($async$zd,r)},
 ws(a,b,c){return this.a_R(a,b,c)},
 a_R(a,b,c){var s=0,r=A.H(t.AN),q,p=this,o,n,m,l,k,j,i,h
 var $async$ws=A.D(function(d,e){if(d===1)return A.E(e,r)
-while(true)switch(s){case 0:l=A.d5("/api/votes/"+a+"/vote",0,null)
+while(true)switch(s){case 0:l=A.d5("https://spotify-party.onrender.com"+("/api/votes/"+a+"/vote"),0,null)
 k=p.gm5()
 j=c===B.f4?"like":"dislike"
 i=t.N
@@ -88769,7 +88769,7 @@ vW(a){return this.Zk(a)},
 Zk(a){var s=0,r=A.H(t.fl),q,p=this,o
 var $async$vW=A.D(function(b,c){if(b===1)return A.E(c,r)
 while(true)switch(s){case 0:s=3
-return A.C(A.aAY(A.d5("/api/votes/"+a+"/results",0,null),p.gm5()),$async$vW)
+return A.C(A.aAY(A.d5("https://spotify-party.onrender.com"+("/api/votes/"+a+"/results"),0,null),p.gm5()),$async$vW)
 case 3:o=c
 if(o.b===200){q=J.ay4(B.a0.cw(0,A.HO(A.HF(o.e)).cw(0,o.w)),new A.a0g(),t.N,t.h9)
 s=1
@@ -88779,7 +88779,7 @@ return A.G($async$vW,r)},
 w4(){var s=0,r=A.H(t.j),q,p=this,o
 var $async$w4=A.D(function(a,b){if(a===1)return A.E(b,r)
 while(true)switch(s){case 0:s=3
-return A.C(A.aAY(A.d5("/api/spotify/playlists",0,null),p.gm5()),$async$w4)
+return A.C(A.aAY(A.d5("https://spotify-party.onrender.com/api/spotify/playlists",0,null),p.gm5()),$async$w4)
 case 3:o=b
 if(o.b===200){q=J.aB(B.a0.cw(0,A.HO(A.HF(o.e)).cw(0,o.w)),"playlists")
 s=1
@@ -88790,7 +88790,7 @@ w0(a){return this.ZA(a)},
 ZA(a){var s=0,r=A.H(t.dK),q,p=this,o,n
 var $async$w0=A.D(function(b,c){if(b===1)return A.E(c,r)
 while(true)switch(s){case 0:s=3
-return A.C(A.aAY(A.d5("/api/spotify/playlists/"+a+"/tracks",0,null),p.gm5()),$async$w0)
+return A.C(A.aAY(A.d5("https://spotify-party.onrender.com"+("/api/spotify/playlists/"+a+"/tracks"),0,null),p.gm5()),$async$w0)
 case 3:n=c
 if(n.b===200){o=J.mo(t.j.a(J.aB(B.a0.cw(0,A.HO(A.HF(n.e)).cw(0,n.w)),"tracks")),new A.a0h(),t.mc)
 o=A.a7(o,o.$ti.i("av.E"))
