@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/constants.dart';
 import 'dart:convert';
+import '../utils/constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,32 +12,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _userName;
-  String? _userEmail;
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
-    _verifyAuth();
-  }
-
-  Future<void> _verifyAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(AppConstants.keyAccessToken);
-    final userId = prefs.getString(AppConstants.keyUserId);
-    
-    if (token == null || userId == null) {
-      // Rediriger vers login si pas authentifié
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/');
-      }
-      return;
-    }
-    
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   Future<void> _loadUserData() async {
@@ -45,19 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final userData = prefs.getString(AppConstants.keyUserData);
     
     if (userData != null) {
-      try {
-        final userMap = json.decode(userData);
-        setState(() {
-          _userName = userMap['display_name'] ?? 'Utilisateur';
-          _userEmail = userMap['email'];
-        });
-      } catch (e) {
-        print('Erreur lecture user data: $e');
-        setState(() {
-          _userName = 'Utilisateur';
-        });
-      }
-    } else {
       setState(() {
         _userName = 'Utilisateur';
       });
@@ -73,57 +39,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Déconnexion'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(AppConstants.keyAccessToken);
-      await prefs.remove(AppConstants.keyUserId);
-      await prefs.remove(AppConstants.keyUserData);
-      
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/');
-      }
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(AppConstants.keyAccessToken);
+    await prefs.remove(AppConstants.keyUserId);
+    await prefs.remove(AppConstants.keyUserData);
+    
+    Navigator.pushReplacementNamed(context, '/');
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF191414),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(color: Color(0xFF1DB954)),
-              const SizedBox(height: 20),
-              const Text(
-                'Chargement...',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: const Color(0xFF191414),
       appBar: AppBar(
@@ -143,20 +68,9 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Section utilisateur
             if (_userName != null)
               Column(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: const Color(0xFF1DB954),
-                    radius: 40,
-                    child: Icon(
-                      Icons.person,
-                      size: 40,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Text(
                     'Bonjour, $_userName!',
                     style: const TextStyle(
@@ -165,21 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (_userEmail != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _userEmail!,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 10),
                 ],
               ),
             
-            // Icone principale
             const Icon(
               Icons.music_note,
               size: 80,
@@ -207,7 +110,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 50),
             
-            // Boutons d'action
             _buildActionButton(
               "Créer une session",
               Icons.add,
@@ -224,7 +126,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 30),
             
-            // Information
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20.0),
               child: Text(
@@ -260,11 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 10),
             Text(
               text,
-              style: TextStyle(
-                color: Colors.white, 
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: Colors.white, fontSize: 18),
             ),
           ],
         ),

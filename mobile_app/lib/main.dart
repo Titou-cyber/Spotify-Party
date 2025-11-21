@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:js' as js;
 
 // Screens
 import 'screens/login_screen.dart';
@@ -38,7 +37,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final ApiService _apiService = ApiService();
   String? _initialRoute = '/';
-  bool _isCheckingAuth = true;
 
   @override
   void initState() {
@@ -49,97 +47,24 @@ class _MyAppState extends State<MyApp> {
   Future<void> _determineInitialRoute() async {
     await _apiService.loadToken();
     
-    // Vérifier les paramètres d'URL pour l'authentification (web seulement)
-    if (kIsWeb) {
-      final uri = Uri.base;
-      final accessToken = uri.queryParameters['access_token'];
-      final authError = uri.queryParameters['auth_error'];
-      
-      if (accessToken != null) {
-        print('🔑 Token détecté dans l\'URL, connexion automatique...');
-        await _handleUrlAuth(uri.queryParameters);
-        setState(() {
-          _initialRoute = '/home';
-          _isCheckingAuth = false;
-        });
-        return;
-      } else if (authError != null) {
-        print('❌ Erreur d\'auth dans l\'URL: $authError');
-        // Nettoyer l'URL et rester sur login
-        _cleanUrl();
-      }
-    }
-    
-    // Vérifier l'authentification existante
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AppConstants.keyAccessToken);
     final userId = prefs.getString(AppConstants.keyUserId);
     
-    if (token != null && userId != null && token.isNotEmpty) {
+    // Vérification simple sans opérateurs !
+    if (token != null && userId != null) {
       setState(() {
         _initialRoute = '/home';
-        _isCheckingAuth = false;
       });
     } else {
       setState(() {
         _initialRoute = '/';
-        _isCheckingAuth = false;
       });
-    }
-  }
-
-  Future<void> _handleUrlAuth(Map<String, String> params) async {
-    try {
-      final accessToken = params['access_token']!;
-      final userId = params['user_id']!;
-      
-      await _apiService.saveToken(accessToken);
-      
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(AppConstants.keyUserId, userId);
-      
-      // Nettoyer l'URL
-      _cleanUrl();
-      
-      print('✅ Connexion automatique réussie pour l\'utilisateur: $userId');
-    } catch (e) {
-      print('❌ Erreur lors de la connexion automatique: $e');
-    }
-  }
-
-  void _cleanUrl() {
-    // Nettoyer l'URL des paramètres d'authentification
-    if (kIsWeb) {
-      final cleanUrl = '${AppConstants.apiUrl}/';
-      // Utiliser l'API History pour changer l'URL sans recharger
-      js.context.callMethod('history.replaceState', [null, '', cleanUrl]);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Afficher un loading pendant la vérification de l'authentification
-    if (_isCheckingAuth) {
-      return MaterialApp(
-        home: Scaffold(
-          backgroundColor: const Color(0xFF191414),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const CircularProgressIndicator(color: Color(0xFF1DB954)),
-                const SizedBox(height: 20),
-                const Text(
-                  'Connexion en cours...',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return MaterialApp(
       title: 'Spotify Party',
       theme: ThemeData(
@@ -179,7 +104,6 @@ class _MyAppState extends State<MyApp> {
         '/session': (context) => const SessionScreen(),
       },
       onGenerateRoute: (settings) {
-        // Gestion des routes avec arguments
         if (settings.name == '/session' && settings.arguments != null) {
           return MaterialPageRoute(
             builder: (context) => SessionScreen(),
@@ -189,7 +113,6 @@ class _MyAppState extends State<MyApp> {
         return null;
       },
       onUnknownRoute: (settings) {
-        // Rediriger vers la page de login si route inconnue
         return MaterialPageRoute(builder: (context) => const LoginScreen());
       },
     );
