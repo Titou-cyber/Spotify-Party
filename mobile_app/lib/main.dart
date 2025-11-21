@@ -66,6 +66,7 @@ class MyApp extends StatelessWidget {
         '/create-session': (context) => const CreateSessionScreen(),
         '/join-session': (context) => const JoinSessionScreen(),
         '/session': (context) => const SessionScreen(),
+        '/auth-callback': (context) => const AuthCallbackScreen(),
       },
     );
   }
