@@ -10,8 +10,19 @@ from app.schemas.user import UserResponse
 from app.services.spotify_service import spotify_service
 from app.utils.helpers import get_db
 import uuid
+import os
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+@router.get("/debug-config")
+async def debug_config():
+    """Debug de la configuration Spotify"""
+    return {
+        "spotify_client_id": os.getenv("SPOTIFY_CLIENT_ID", "NOT_SET"),
+        "spotify_redirect_uri": os.getenv("SPOTIFY_REDIRECT_URI", "NOT_SET"), 
+        "spotify_client_secret_set": bool(os.getenv("SPOTIFY_CLIENT_SECRET")),
+        "message": "Configuration Spotify chargée"
+    }
 
 @router.get("/login")
 async def login():
@@ -28,21 +39,31 @@ async def login():
 @router.get("/callback")
 async def callback(code: str, db: Session = Depends(get_db)):
     """Callback OAuth2 Spotify - Redirige vers le frontend après auth"""
+    print(f"🎯 CALLBACK DÉCLENCHÉ - Code reçu: {code}")
+    
     try:
         # Échanger le code contre un access token
+        print("🔄 Échange du code contre token...")
         token_info = spotify_service.get_access_token(code)
+        
         if not token_info:
-            # Rediriger vers le frontend avec erreur
-            return RedirectResponse(url=f"{settings.FRONTEND_URL}?auth_error=failed_to_exchange_token")
+            print("❌ Échec de l'échange du token")
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}?auth_error=token_exchange_failed")
             
+        print("✅ Token obtenu avec succès!")
+        
         access_token = token_info['access_token']
         refresh_token = token_info['refresh_token']
         expires_in = token_info['expires_in']
         
         # Obtenir le profil utilisateur
+        print("🔄 Récupération du profil utilisateur...")
         user_profile = spotify_service.get_user_profile(access_token)
         if not user_profile:
-            return RedirectResponse(url=f"{settings.FRONTEND_URL}?auth_error=failed_to_get_profile")
+            print("❌ Échec de la récupération du profil")
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}?auth_error=profile_failed")
+        
+        print(f"✅ Profil utilisateur: {user_profile.get('display_name', 'Unknown')}")
         
         # Vérifier si l'utilisateur existe
         user = db.query(User).filter(User.spotify_id == user_profile['id']).first()
@@ -54,6 +75,7 @@ async def callback(code: str, db: Session = Depends(get_db)):
             user.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
             user.display_name = user_profile.get('display_name', user.display_name)
             user.email = user_profile.get('email', user.email)
+            print("✅ Utilisateur existant mis à jour")
         else:
             # Créer un nouvel utilisateur
             user = User(
@@ -66,6 +88,7 @@ async def callback(code: str, db: Session = Depends(get_db)):
                 token_expires_at=datetime.utcnow() + timedelta(seconds=expires_in)
             )
             db.add(user)
+            print("✅ Nouvel utilisateur créé")
         
         db.commit()
         db.refresh(user)
@@ -85,10 +108,14 @@ async def callback(code: str, db: Session = Depends(get_db)):
         }
         
         redirect_url = f"{frontend_url}?{urlencode(params)}"
+        print(f"🔀 Redirection vers: {redirect_url}")
         return RedirectResponse(url=redirect_url)
     
     except Exception as e:
         db.rollback()
+        print(f"💥 Erreur dans le callback: {str(e)}")
+        import traceback
+        print(f"Stack trace: {traceback.format_exc()}")
         error_message = str(e).replace(' ', '_')
         return RedirectResponse(url=f"{settings.FRONTEND_URL}?auth_error={error_message}")
 
