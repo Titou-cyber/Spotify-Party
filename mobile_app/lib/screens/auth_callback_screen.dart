@@ -14,64 +14,105 @@ class AuthCallbackScreen extends StatefulWidget {
 class _AuthCallbackScreenState extends State<AuthCallbackScreen> {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
+  String _status = 'Traitement de l\'authentification...';
 
   @override
   void initState() {
     super.initState();
-    _handleCallback();
+    _handleAuthCallback();
   }
 
-  Future<void> _handleCallback() async {
+  Future<void> _handleAuthCallback() async {
     try {
-      // Récupérer le code depuis l'URL
+      // Récupérer les paramètres depuis l'URL
       final uri = Uri.base;
-      final code = uri.queryParameters['code'];
+      final accessToken = uri.queryParameters['access_token'];
+      final userId = uri.queryParameters['user_id'];
+      final authError = uri.queryParameters['auth_error'];
       
-      if (code != null) {
-        print('🔍 Code reçu dans AuthCallback: $code');
-        final result = await _apiService.handleCallback(code);
-        await _apiService.saveToken(result['access_token']);
+      if (authError != null) {
+        setState(() {
+          _status = 'Erreur d\'authentification: ${authError.replaceAll('_', ' ')}';
+          _isLoading = false;
+        });
+        await Future.delayed(const Duration(seconds: 3));
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/');
+        }
+        return;
+      }
+      
+      if (accessToken != null && userId != null) {
+        setState(() => _status = 'Sauvegarde des informations...');
+        
+        await _apiService.saveToken(accessToken);
         
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(AppConstants.keyUserId, result['user']['id']);
-        await prefs.setString(AppConstants.keyUserData, json.encode(result['user']));
+        await prefs.setString(AppConstants.keyUserId, userId);
         
-        // Rediriger vers home
+        // Nettoyer l'URL (web seulement)
+        if (mounted) {
+          _cleanUrl();
+        }
+        
+        setState(() => _status = 'Authentification réussie!');
+        await Future.delayed(const Duration(seconds: 1));
+        
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/home');
         }
       } else {
-        throw Exception('Aucun code trouvé dans l\'URL');
+        throw Exception('Paramètres d\'authentification manquants');
       }
     } catch (e) {
       print('❌ Erreur AuthCallback: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur d\'authentification: $e')),
-        );
+        setState(() {
+          _status = 'Erreur: $e';
+          _isLoading = false;
+        });
+        
+        await Future.delayed(const Duration(seconds: 3));
         Navigator.pushReplacementNamed(context, '/');
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
+  }
+
+  void _cleanUrl() {
+    // Nettoyer l'URL des paramètres d'authentification
+    final cleanUrl = '${AppConstants.apiUrl}/';
+    // L'implémentation spécifique dépend de votre setup Flutter Web
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF191414),
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: Color(0xFF1DB954)),
-            SizedBox(height: 20),
+            if (_isLoading)
+              const CircularProgressIndicator(color: Color(0xFF1DB954)),
+            const SizedBox(height: 20),
             Text(
-              'Connexion en cours...',
-              style: TextStyle(color: Colors.white),
+              _status,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
             ),
+            if (!_isLoading)
+              Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(context, '/');
+                  },
+                  child: const Text('Retour'),
+                ),
+              ),
           ],
         ),
       ),

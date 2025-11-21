@@ -1,5 +1,3 @@
-# Créer le bon index.html
-cat > frontend/index.html << 'EOF'
 <!DOCTYPE html>
 <html>
 <head>
@@ -8,27 +6,17 @@ cat > frontend/index.html << 'EOF'
   <title>Spotify Party</title>
   
   <script>
-    // Redirection IMMÉDIATE au chargement
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('🔍 Vérification URL...');
-      console.log('URL complète:', window.location.href);
+    // Redirection simple pour Spotify
+    if (window.location.href.includes('/api/auth/callback?code=')) {
+      // Extraire le code
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
       
-      if (window.location.href.includes('/api/auth/callback?code=')) {
-        console.log('✅ Détection callback Spotify!');
-        
-        // Extraire le code
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        
-        if (code) {
-          console.log('📝 Code extrait:', code);
-          // Rediriger IMMÉDIATEMENT
-          window.location.href = '/#/auth-callback?code=' + code;
-        }
-      } else {
-        console.log('❌ Pas de callback Spotify détecté');
+      if (code) {
+        // Rediriger vers l'app Flutter avec le code en hash
+        window.location.href = '/#/auth-callback?code=' + code;
       }
-    });
+    }
   </script>
   
   <link rel="manifest" href="manifest.json">
@@ -38,4 +26,3 @@ cat > frontend/index.html << 'EOF'
   <script src="main.dart.js" type="application/javascript"></script>
 </body>
 </html>
-EOF

@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from fastapi.responses import RedirectResponse
+from urllib.parse import urlencode
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.user import User
@@ -25,15 +27,13 @@ async def login():
 
 @router.get("/callback")
 async def callback(code: str, db: Session = Depends(get_db)):
-    """Callback OAuth2 Spotify"""
+    """Callback OAuth2 Spotify - Redirige vers le frontend après auth"""
     try:
         # Échanger le code contre un access token
         token_info = spotify_service.get_access_token(code)
         if not token_info:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to exchange code for access token"
-            )
+            # Rediriger vers le frontend avec erreur
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}?auth_error=failed_to_exchange_token")
             
         access_token = token_info['access_token']
         refresh_token = token_info['refresh_token']
@@ -42,10 +42,7 @@ async def callback(code: str, db: Session = Depends(get_db)):
         # Obtenir le profil utilisateur
         user_profile = spotify_service.get_user_profile(access_token)
         if not user_profile:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to get user profile"
-            )
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}?auth_error=failed_to_get_profile")
         
         # Vérifier si l'utilisateur existe
         user = db.query(User).filter(User.spotify_id == user_profile['id']).first()
@@ -78,20 +75,22 @@ async def callback(code: str, db: Session = Depends(get_db)):
             data={"sub": user.id, "spotify_id": user.spotify_id}
         )
         
-        return {
+        # Rediriger vers le frontend avec le token
+        frontend_url = settings.FRONTEND_URL
+        params = {
             "access_token": jwt_token,
-            "token_type": "bearer",
-            "user": UserResponse.model_validate(user)
+            "token_type": "bearer", 
+            "user_id": user.id,
+            "auth_success": "true"
         }
+        
+        redirect_url = f"{frontend_url}?{urlencode(params)}"
+        return RedirectResponse(url=redirect_url)
     
-    except HTTPException:
-        raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Authentication failed: {str(e)}"
-        )
+        error_message = str(e).replace(' ', '_')
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}?auth_error={error_message}")
 
 @router.post("/refresh")
 async def refresh_token(user_id: str, db: Session = Depends(get_db)):
