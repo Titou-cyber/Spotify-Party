@@ -38,10 +38,10 @@ app.include_router(votes_router, tags=["votes"])
 app.include_router(spotify_router, tags=["spotify"])
 
 # ===== SERVIR LES FICHIERS STATIQUES FLUTTER =====
-# Chemin relatif depuis backend/
-static_path = os.path.join(os.path.dirname(__file__), "../../mobile_app/build/web")
+# CHEMIN CORRIGÉ : utiliser frontend/ au lieu de mobile_app/build/web
+static_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
 
-# Vérifier si le dossier build existe
+# Vérifier si le dossier frontend existe
 if os.path.exists(static_path):
     print(f"✅ Serving Flutter app from: {static_path}")
     
@@ -82,14 +82,14 @@ if os.path.exists(static_path):
         return {"error": "Not found"}
 else:
     print(f"⚠️ Flutter build not found at: {static_path}")
-    print("Run 'cd mobile_app && flutter build web' first")
+    print("Build Flutter locally and copy to frontend/ folder")
     
     @app.get("/")
     async def root():
         return {
             "message": "Spotify Party API - Flutter build not found", 
             "version": "1.0.0",
-            "hint": "Run 'cd mobile_app && flutter build web' to build the frontend"
+            "hint": "Run 'cd mobile_app && flutter build web && cp -r build/web/* ../frontend/' to build the frontend"
         }
 
 if __name__ == "__main__":
