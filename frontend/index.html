@@ -1,74 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-  <title>Spotify Party</title>
-  
-  <script>
-    // Redirection IMMÉDIATE après auth Spotify
-    if (window.location.href.includes('/api/auth/callback?code=')) {
-      console.log('🔍 Détection callback Spotify');
-      
-      // Extraire le code de l'URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      
-      if (code) {
-        console.log('📝 Code reçu:', code);
-        
-        // Stocker le code temporairement
-        sessionStorage.setItem('spotify_auth_code', code);
-        
-        // Rediriger IMMÉDIATEMENT vers l'app
-        console.log('🔄 Redirection vers /#/');
-        window.location.href = '/#/';
-      }
-    }
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
 
-    // Au chargement de la page, vérifier s'il y a un code à traiter
-    window.addEventListener('load', function() {
-      const code = sessionStorage.getItem('spotify_auth_code');
-      
-      if (code) {
-        console.log('🔄 Traitement du code stocké:', code);
-        
-        // Appeler l'API pour échanger le code
-        fetch(`/api/auth/callback?code=${code}`)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Erreur API: ' + response.status);
-            }
-            return response.json();
-          })
-          .then(data => {
-            console.log('✅ Auth réussie:', data);
-            
-            // Stocker les données
-            localStorage.setItem('access_token', data.access_token);
-            localStorage.setItem('user_id', data.user.id);
-            localStorage.setItem('user_data', JSON.stringify(data.user));
-            
-            // Nettoyer le code temporaire
-            sessionStorage.removeItem('spotify_auth_code');
-            
-            // Rediriger vers la page principale
-            console.log('🏠 Redirection vers /#/home');
-            window.location.href = '/#/home';
-          })
-          .catch(error => {
-            console.error('❌ Erreur auth:', error);
-            sessionStorage.removeItem('spotify_auth_code');
-            alert('Erreur d\'authentification: ' + error.message);
-          });
-      }
-    });
-  </script>
-  
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="spotify_party">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>spotify_party</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="favicon.png">
 </head>
 <body>
-  <script src="main.dart.js" type="application/javascript"></script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

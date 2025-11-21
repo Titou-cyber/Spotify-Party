@@ -20,10 +20,11 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _checkExistingAuth();
+    _initializeAuth();
   }
 
-  Future<void> _checkExistingAuth() async {
+  Future<void> _initializeAuth() async {
+    // 1. Vérifier l'authentification existante
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AppConstants.keyAccessToken);
     
@@ -31,63 +32,95 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacementNamed(context, '/home');
       return;
     }
+
+    // 2. Vérifier si on est dans un callback Spotify (web seulement)
+    if (kIsWeb) {
+      _checkForSpotifyCallback();
+    }
     
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
+  }
+
+  void _checkForSpotifyCallback() {
+    final currentUrl = Uri.base.toString();
+    if (currentUrl.contains('/api/auth/callback?code=')) {
+      _handleSpotifyCallback(currentUrl);
+    }
+  }
+
+  Future<void> _handleSpotifyCallback(String callbackUrl) async {
+    try {
+      setState(() => _isLoading = true);
+      
+      final uri = Uri.parse(callbackUrl);
+      final code = uri.queryParameters['code'];
+      
+      if (code != null) {
+        final result = await _apiService.handleCallback(code);
+        await _apiService.saveToken(result['access_token']);
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(AppConstants.keyUserId, result['user']['id']);
+        await prefs.setString(AppConstants.keyUserData, json.encode(result['user']));
+        
+        // Nettoyer l'URL
+        if (kIsWeb) {
+          // Retirer le code de l'URL
+          const newUrl = '${AppConstants.apiUrl}/';
+          // history.replaceState ne marche pas directement en Flutter web
+          // On utilise une redirection
+          Future.delayed(Duration.zero, () {
+            Navigator.pushReplacementNamed(context, '/home');
+          });
+        } else {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      }
+    } catch (e) {
+      print('Erreur auth: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _loginWithSpotify() async {
     try {
+      final authUrl = '${AppConstants.apiUrl}/api/auth/login';
+      
       if (kIsWeb) {
-        // Pour le web : ouvrir dans le même onglet
-        final authUrl = '${AppConstants.apiUrl}/api/auth/login';
+        // Web: ouvrir dans le même onglet
         await launchUrl(
           Uri.parse(authUrl),
-          webOnlyWindowName: '_self', // Ouvre dans le même onglet
+          webOnlyWindowName: '_self',
         );
       } else {
-        // Pour mobile : méthode manuelle avec code (version simplifiée)
-        _showManualAuthDialog();
+        // Mobile: méthode manuelle simple
+        _showCodeInputDialog();
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Erreur: $e')),
       );
     }
   }
 
-  void _showManualAuthDialog() {
+  void _showCodeInputDialog() {
     final codeController = TextEditingController();
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Authentification Spotify'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Pour mobile, utilisez cette méthode:'),
-            const SizedBox(height: 10),
-            const Text(
-              '1. Allez sur: ${AppConstants.apiUrl}/api/auth/login\n'
-              '2. Autorisez l\'application\n'
-              '3. Copiez le code de l\'URL\n'
-              '4. Collez-le ci-dessous',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: codeController,
-              decoration: const InputDecoration(
-                labelText: 'Code d\'autorisation',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
+        title: const Text('Code Spotify'),
+        content: TextField(
+          controller: codeController,
+          decoration: const InputDecoration(
+            hintText: 'Collez le code Spotify ici',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
           TextButton(
@@ -95,27 +128,22 @@ class _LoginScreenState extends State<LoginScreen> {
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () => _submitManualCode(codeController.text),
-            child: const Text('Se connecter'),
+            onPressed: () {
+              Navigator.pop(context);
+              _submitCode(codeController.text);
+            },
+            child: const Text('Valider'),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _submitManualCode(String code) async {
-    if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer le code'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
+  Future<void> _submitCode(String code) async {
+    if (code.isEmpty) return;
+    
     setState(() => _isLoading = true);
-
+    
     try {
       final result = await _apiService.handleCallback(code);
       await _apiService.saveToken(result['access_token']);
@@ -124,18 +152,13 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString(AppConstants.keyUserId, result['user']['id']);
       await prefs.setString(AppConstants.keyUserData, json.encode(result['user']));
       
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+      Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Erreur: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -151,64 +174,57 @@ class _LoginScreenState extends State<LoginScreen> {
                   CircularProgressIndicator(color: Color(0xFF1DB954)),
                   SizedBox(height: 20),
                   Text(
-                    'Vérification...',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    'Chargement...',
+                    style: TextStyle(color: Colors.white),
                   ),
                 ],
               ),
             )
-          : Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.music_note,
-                    size: 80,
-                    color: Color(0xFF1DB954),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Spotify Party',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+          : Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.music_note,
+                      size: 80,
+                      color: Color(0xFF1DB954),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Connectez-vous avec Spotify pour commencer',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 40),
-                  
-                  ElevatedButton(
-                    onPressed: _loginWithSpotify,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1DB954),
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: const Text(
-                      'Se connecter avec Spotify',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  
-                  if (!kIsWeb) ...[
                     const SizedBox(height: 20),
                     const Text(
-                      'Sur mobile, vous devrez copier-coller le code d\'autorisation',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      'Spotify Party',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Écoutez et votez pour la musique ensemble',
+                      style: TextStyle(color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
+                    const SizedBox(height: 40),
+                    
+                    ElevatedButton(
+                      onPressed: _loginWithSpotify,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1DB954),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      child: const Text(
+                        'Se connecter avec Spotify',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ],
-                ],
+                ),
               ),
             ),
     );
