@@ -1,297 +1,222 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-import '../utils/constants.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:js' as js;
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+// Screens
+import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/auth_callback_screen.dart';
+import 'screens/create_session_screen.dart';
+import 'screens/join_session_screen.dart';
+import 'screens/session_screen.dart';
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
+// Services
+import 'services/api_service.dart';
+import 'utils/constants.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Orientation portrait uniquement
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  
+  runApp(const MyApp());
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  String? _userName;
-  String? _userEmail;
-  bool _isLoading = true;
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final ApiService _apiService = ApiService();
+  String? _initialRoute = '/';
+  bool _isCheckingAuth = true;
 
   @override
   void initState() {
     super.initState();
-    print('🏠 HomeScreen initState');
-    _loadUserData();
-    _verifyAuth();
+    _determineInitialRoute();
   }
 
-  Future<void> _verifyAuth() async {
-    print('🔐 Vérification de l\'authentification...');
+  Future<void> _determineInitialRoute() async {
+    await _apiService.loadToken();
+    
+    // Vérifier les paramètres d'URL pour l'authentification (web seulement)
+    if (kIsWeb) {
+      final uri = Uri.base;
+      final accessToken = uri.queryParameters['access_token'];
+      final authError = uri.queryParameters['auth_error'];
+      
+      print('🌐 URL détectée: ${uri.toString()}');
+      print('🔑 AccessToken dans URL: $accessToken');
+      print('❌ AuthError dans URL: $authError');
+      
+      if (accessToken != null && accessToken.isNotEmpty) {
+        print('🔑 Token détecté dans l\'URL, connexion automatique...');
+        await _handleUrlAuth(uri.queryParameters);
+        setState(() {
+          _initialRoute = '/home';
+          _isCheckingAuth = false;
+        });
+        return;
+      } else if (authError != null) {
+        print('❌ Erreur d\'auth dans l\'URL: $authError');
+        // Nettoyer l'URL et rester sur login
+        _cleanUrl();
+      }
+    }
+    
+    // Vérifier l'authentification existante
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AppConstants.keyAccessToken);
     final userId = prefs.getString(AppConstants.keyUserId);
     
-    print('📝 Token: $token');
-    print('👤 UserId: $userId');
+    print('📝 Token stocké: $token');
+    print('👤 UserId stocké: $userId');
     
-    if (token == null || userId == null) {
-      print('❌ Non authentifié, redirection vers login');
-      // Rediriger vers login si pas authentifié
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/');
-      }
-      return;
-    }
-    
-    print('✅ Authentifié avec succès');
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _loadUserData() async {
-    print('📖 Chargement des données utilisateur...');
-    final prefs = await SharedPreferences.getInstance();
-    final userData = prefs.getString(AppConstants.keyUserData);
-    
-    print('📋 UserData: $userData');
-    
-    if (userData != null) {
-      try {
-        final userMap = json.decode(userData);
-        print('👤 Données utilisateur décodées: $userMap');
-        setState(() {
-          _userName = userMap['display_name'] ?? 'Utilisateur';
-          _userEmail = userMap['email'];
-        });
-      } catch (e) {
-        print('❌ Erreur lecture user data: $e');
-        setState(() {
-          _userName = 'Utilisateur';
-        });
-      }
-    } else {
-      print('⚠️ Aucune donnée utilisateur trouvée');
+    if (token != null && userId != null && token.isNotEmpty) {
       setState(() {
-        _userName = 'Utilisateur';
+        _initialRoute = '/home';
+        _isCheckingAuth = false;
+      });
+    } else {
+      setState(() {
+        _initialRoute = '/';
+        _isCheckingAuth = false;
       });
     }
   }
 
-  void _createSession() {
-    print('🎵 Création de session');
-    Navigator.pushNamed(context, '/create-session');
-  }
-
-  void _joinSession() {
-    print('🔗 Rejoindre une session');
-    Navigator.pushNamed(context, '/join-session');
-  }
-
-  Future<void> _logout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Déconnexion'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      print('🚪 Déconnexion...');
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(AppConstants.keyAccessToken);
-      await prefs.remove(AppConstants.keyUserId);
-      await prefs.remove(AppConstants.keyUserData);
+  Future<void> _handleUrlAuth(Map<String, String> params) async {
+    try {
+      final accessToken = params['access_token'];
+      final userId = params['user_id'];
       
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/');
+      // VÉRIFICATION DE NULLITÉ AVANT D'UTILISER !
+      if (accessToken == null || accessToken.isEmpty) {
+        print('❌ AccessToken manquant dans les paramètres');
+        return;
+      }
+      
+      if (userId == null || userId.isEmpty) {
+        print('❌ UserId manquant dans les paramètres');
+        return;
+      }
+      
+      print('✅ Paramètres valides, sauvegarde du token...');
+      
+      await _apiService.saveToken(accessToken);
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConstants.keyUserId, userId);
+      
+      // Nettoyer l'URL
+      _cleanUrl();
+      
+      print('✅ Connexion automatique réussie pour l\'utilisateur: $userId');
+    } catch (e) {
+      print('❌ Erreur lors de la connexion automatique: $e');
+    }
+  }
+
+  void _cleanUrl() {
+    // Nettoyer l'URL des paramètres d'authentification
+    if (kIsWeb) {
+      try {
+        final cleanUrl = '${AppConstants.apiUrl}/';
+        // Utiliser l'API History pour changer l'URL sans recharger
+        js.context.callMethod('history.replaceState', [null, '', cleanUrl]);
+        print('🔧 URL nettoyée: $cleanUrl');
+      } catch (e) {
+        print('⚠️ Impossible de nettoyer l\'URL: $e');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    print('🏗️ Building HomeScreen - isLoading: $_isLoading, userName: $_userName');
-    
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF191414),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(color: Color(0xFF1DB954)),
-              const SizedBox(height: 20),
-              const Text(
-                'Chargement...',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ],
+    // Afficher un loading pendant la vérification de l'authentification
+    if (_isCheckingAuth) {
+      return MaterialApp(
+        home: Scaffold(
+          backgroundColor: const Color(0xFF191414),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(color: Color(0xFF1DB954)),
+                const SizedBox(height: 20),
+                const Text(
+                  'Connexion en cours...',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF191414), // Fond noir Spotify
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF191414), // Fond noir
-        elevation: 0,
-        title: const Text(
-          'Spotify Party',
-          style: TextStyle(color: Colors.white),
+    return MaterialApp(
+      title: 'Spotify Party',
+      theme: ThemeData(
+        primaryColor: const Color(0xFF1DB954),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF1DB954),
+          secondary: Color(0xFF1DB954),
+          background: Color(0xFF191414),
+          surface: Color(0xFF282828),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _logout,
-            tooltip: 'Déconnexion',
-          ),
-        ],
-      ),
-      body: Container(
-        color: const Color(0xFF191414), // Fond noir garanti
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Section utilisateur
-              if (_userName != null)
-                Column(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: const Color(0xFF1DB954),
-                      radius: 40,
-                      child: Icon(
-                        Icons.person,
-                        size: 40,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Bonjour, $_userName!',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (_userEmail != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        _userEmail!,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 30),
-                  ],
-                ),
-              
-              // Icone principale
-              const Icon(
-                Icons.music_note,
-                size: 80,
-                color: Color(0xFF1DB954),
-              ),
-              const SizedBox(height: 20),
-              
-              const Text(
-                'Spotify Party',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              
-              const Text(
-                'Créez ou rejoignez une session musicale collaborative',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 50),
-              
-              // Boutons d'action
-              _buildActionButton(
-                "Créer une session",
-                Icons.add,
-                const Color(0xFF1DB954),
-                _createSession,
-              ),
-              const SizedBox(height: 20),
-              
-              _buildActionButton(
-                "Rejoindre une session",
-                Icons.group,
-                Colors.blue,
-                _joinSession,
-              ),
-              const SizedBox(height: 30),
-              
-              // Information
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.0),
-                child: Text(
-                  'Partagez vos playlists et votez pour la prochaine musique en temps réel!',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
+        scaffoldBackgroundColor: const Color(0xFF191414),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF191414),
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.white),
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(String text, IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: color),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: Colors.white),
+          bodyMedium: TextStyle(color: Colors.white),
+          titleLarge: TextStyle(color: Colors.white),
+          titleMedium: TextStyle(color: Colors.white),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 10),
-            Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white, 
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+        useMaterial3: true,
       ),
+      initialRoute: _initialRoute,
+      routes: {
+        '/': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/auth-callback': (context) => const AuthCallbackScreen(),
+        '/create-session': (context) => const CreateSessionScreen(),
+        '/join-session': (context) => const JoinSessionScreen(),
+        '/session': (context) => const SessionScreen(),
+      },
+      onGenerateRoute: (settings) {
+        // Gestion des routes avec arguments
+        if (settings.name == '/session' && settings.arguments != null) {
+          return MaterialPageRoute(
+            builder: (context) => SessionScreen(),
+            settings: settings,
+          );
+        }
+        return null;
+      },
+      onUnknownRoute: (settings) {
+        // Rediriger vers la page de login si route inconnue
+        return MaterialPageRoute(builder: (context) => const LoginScreen());
+      },
     );
   }
 }
