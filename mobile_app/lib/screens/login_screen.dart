@@ -28,35 +28,51 @@ class _LoginScreenState extends State<LoginScreen> {
     final token = prefs.getString(AppConstants.keyAccessToken);
     
     if (token != null && token.isNotEmpty) {
-      Navigator.pushReplacementNamed(context, '/home');
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
       return;
     }
     
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loginWithSpotify() async {
     try {
+      // RÉCUPÉRER L'URL D'AUTH ET REDIRIGER VERS ELLE
+      final response = await _apiService.getAuthUrl();
+      final authUrl = response['auth_url'];
+      
+      print('🔗 Redirection vers: $authUrl');
+      
       if (kIsWeb) {
-        // Pour le web : ouvrir dans le même onglet
-        final authUrl = '${AppConstants.apiUrl}/api/auth/login';
+        // Web : ouvrir dans le même onglet
         await launchUrl(
           Uri.parse(authUrl),
-          webOnlyWindowName: '_self', // Ouvre dans le même onglet
+          mode: LaunchMode.inAppWebView, // Important pour rester dans l'app
         );
       } else {
-        // Pour mobile : méthode manuelle avec code (version simplifiée)
-        _showManualAuthDialog();
+        // Pour mobile : ouvrir l'URL d'auth
+        if (await canLaunchUrl(Uri.parse(authUrl))) {
+          await launchUrl(Uri.parse(authUrl));
+        } else {
+          throw 'Impossible d\'ouvrir l\'URL d\'authentification';
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('❌ Erreur login: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de connexion: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -72,12 +88,12 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             const Text('Pour mobile, utilisez cette méthode:'),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               '1. Allez sur: ${AppConstants.apiUrl}/api/auth/login\n'
               '2. Autorisez l\'application\n'
               '3. Copiez le code de l\'URL\n'
               '4. Collez-le ci-dessous',
-              style: TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -95,7 +111,10 @@ class _LoginScreenState extends State<LoginScreen> {
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () => _submitManualCode(codeController.text),
+            onPressed: () {
+              Navigator.pop(context);
+              _submitManualCode(codeController.text);
+            },
             child: const Text('Se connecter'),
           ),
         ],
@@ -105,16 +124,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submitManualCode(String code) async {
     if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer le code'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez entrer le code'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return;
     }
 
-    setState(() => _isLoading = true);
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
 
     try {
       final result = await _apiService.handleCallback(code);
@@ -128,14 +151,15 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -206,6 +230,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Sur mobile, vous devrez copier-coller le code d\'autorisation',
                       style: TextStyle(color: Colors.grey, fontSize: 12),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: _showManualAuthDialog,
+                      child: const Text(
+                        'Méthode manuelle',
+                        style: TextStyle(color: Color(0xFF1DB954)),
+                      ),
                     ),
                   ],
                 ],

@@ -42,7 +42,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
-      throw Exception('Failed to get auth URL');
+      throw Exception('Failed to get auth URL: ${response.statusCode}');
     }
   }
 
@@ -56,7 +56,7 @@ class ApiService {
       await saveToken(data['access_token']);
       return data;
     } else {
-      throw Exception('Authentication failed');
+      throw Exception('Authentication failed: ${response.statusCode}');
     }
   }
 
@@ -69,7 +69,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return User.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to get user');
+      throw Exception('Failed to get user: ${response.statusCode}');
     }
   }
 
@@ -85,7 +85,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return Session.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to create session');
+      throw Exception('Failed to create session: ${response.statusCode}');
     }
   }
 
@@ -99,7 +99,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return Session.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to join session');
+      throw Exception('Failed to join session: ${response.statusCode}');
     }
   }
 
@@ -112,7 +112,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return Session.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to get session');
+      throw Exception('Failed to get session: ${response.statusCode}');
     }
   }
 
@@ -123,7 +123,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to leave session');
+      throw Exception('Failed to leave session: ${response.statusCode}');
     }
   }
 
@@ -134,7 +134,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to close session');
+      throw Exception('Failed to close session: ${response.statusCode}');
     }
   }
 
@@ -153,7 +153,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return Vote.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to submit vote');
+      throw Exception('Failed to submit vote: ${response.statusCode}');
     }
   }
 
@@ -166,7 +166,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return VoteResults.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to get results');
+      throw Exception('Failed to get results: ${response.statusCode}');
     }
   }
 
@@ -182,7 +182,7 @@ class ApiService {
         (key, value) => MapEntry(key, VoteResults.fromJson(value)),
       );
     } else {
-      throw Exception('Failed to get results');
+      throw Exception('Failed to get results: ${response.statusCode}');
     }
   }
 
@@ -198,7 +198,7 @@ class ApiService {
       final data = json.decode(response.body);
       return data['playlists'];
     } else {
-      throw Exception('Failed to get playlists');
+      throw Exception('Failed to get playlists: ${response.statusCode}');
     }
   }
 
@@ -214,7 +214,7 @@ class ApiService {
           .map((track) => Track.fromJson(track))
           .toList();
     } else {
-      throw Exception('Failed to get tracks');
+      throw Exception('Failed to get tracks: ${response.statusCode}');
     }
   }
 
@@ -227,7 +227,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return Track.fromJson(json.decode(response.body));
     } else {
-      throw Exception('Failed to get track');
+      throw Exception('Failed to get track: ${response.statusCode}');
     }
   }
 
@@ -243,7 +243,7 @@ class ApiService {
           .map((track) => Track.fromJson(track))
           .toList();
     } else {
-      throw Exception('Search failed');
+      throw Exception('Search failed: ${response.statusCode}');
     }
   }
 }
