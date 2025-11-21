@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import '../utils/constants.dart';
+import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,40 +14,20 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _userName;
   String? _userEmail;
   bool _isLoading = true;
-  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    print('🏠 HomeScreen initState');
-    _initializeHome();
-  }
-
-  Future<void> _initializeHome() async {
-    try {
-      await _verifyAuth();
-      await _loadUserData();
-    } catch (e) {
-      print('❌ Erreur initialisation HomeScreen: $e');
-      setState(() {
-        _errorMessage = 'Erreur de chargement: $e';
-        _isLoading = false;
-      });
-    }
+    _loadUserData();
+    _verifyAuth();
   }
 
   Future<void> _verifyAuth() async {
-    print('🔐 Vérification de l\'authentification...');
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AppConstants.keyAccessToken);
     final userId = prefs.getString(AppConstants.keyUserId);
     
-    print('📝 Token: $token');
-    print('👤 UserId: $userId');
-    
-    // VÉRIFICATION SANS OPÉRATEUR !
-    if (token == null || token.isEmpty || userId == null || userId.isEmpty) {
-      print('❌ Non authentifié, redirection vers login');
+    if (token == null || userId == null) {
       // Rediriger vers login si pas authentifié
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/');
@@ -55,48 +35,40 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     
-    print('✅ Authentifié avec succès');
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadUserData() async {
-    print('📖 Chargement des données utilisateur...');
     final prefs = await SharedPreferences.getInstance();
     final userData = prefs.getString(AppConstants.keyUserData);
     
-    print('📋 UserData: $userData');
-    
-    if (userData != null && userData.isNotEmpty) {
+    if (userData != null) {
       try {
         final userMap = json.decode(userData);
-        print('👤 Données utilisateur décodées: $userMap');
         setState(() {
           _userName = userMap['display_name'] ?? 'Utilisateur';
           _userEmail = userMap['email'];
-          _isLoading = false;
         });
       } catch (e) {
-        print('❌ Erreur lecture user data: $e');
+        print('Erreur lecture user data: $e');
         setState(() {
           _userName = 'Utilisateur';
-          _isLoading = false;
         });
       }
     } else {
-      print('⚠️ Aucune donnée utilisateur trouvée');
       setState(() {
         _userName = 'Utilisateur';
-        _isLoading = false;
       });
     }
   }
 
   void _createSession() {
-    print('🎵 Création de session');
     Navigator.pushNamed(context, '/create-session');
   }
 
   void _joinSession() {
-    print('🔗 Rejoindre une session');
     Navigator.pushNamed(context, '/join-session');
   }
 
@@ -120,7 +92,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (confirm == true) {
-      print('🚪 Déconnexion...');
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(AppConstants.keyAccessToken);
       await prefs.remove(AppConstants.keyUserId);
@@ -134,8 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('🏗️ Building HomeScreen - isLoading: $_isLoading, userName: $_userName');
-    
     if (_isLoading) {
       return Scaffold(
         backgroundColor: const Color(0xFF191414),
@@ -149,14 +118,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Chargement...',
                 style: TextStyle(color: Colors.white, fontSize: 16),
               ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 20),
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.red, fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-              ],
             ],
           ),
         ),
@@ -166,15 +127,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF191414),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF191414),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Spotify Party',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Spotify Party'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
+            icon: const Icon(Icons.logout),
             onPressed: _logout,
             tooltip: 'Déconnexion',
           ),
@@ -302,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 10),
             Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white, 
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
