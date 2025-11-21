@@ -63,10 +63,10 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
+        '/auth-callback': (context) => AuthCallbackScreen(),
         '/create-session': (context) => const CreateSessionScreen(),
         '/join-session': (context) => const JoinSessionScreen(),
         '/session': (context) => const SessionScreen(),
-        '/auth-callback': (context) => const AuthCallbackScreen(),
       },
     );
   }
